@@ -39,7 +39,8 @@ To remove it, open the folder and double-click **Uninstall You.bat**.
 3. Under **Colors**, tap **Light**, **Middle** or **Dark**, then drag on the color circle and the sliders.
 4. To use a picture as the background, choose **Choose picture** and set **Dim picture** so the words stay easy to read.
 5. To give Music, Movies or TV Shows its own colors, choose that name, then turn on **Use my own colors here**.
-6. Choose **Make a shortcut with my picture** to put a shortcut with your picture on your Desktop (Windows) or home screen (Android).
+6. Choose **Make a shortcut** (Windows) or **Add a shortcut with my picture** (Android) to put a shortcut with your picture on your Desktop or home screen.
+7. On Android, under **App icon color**, tap a color dot to change the icon on your home screen. On Windows, the same dots under **Profile** change the window, taskbar and shortcut icon. The icon color is separate from the app colors.
 
 ## Build it yourself
 

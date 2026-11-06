@@ -21,6 +21,7 @@ DEFAULTS = {
     "look_tv": {},
     "profile_name": "",
     "profile_picture": "",
+    "icon_color": "black",
     "welcomed": False,
     "music_folders": [],
     "movie_folders": [],

@@ -331,3 +331,31 @@ fun WelcomeScreen(vm: AppViewModel) {
         }
     }
 }
+
+/** Choose the color of the app's icon on the home screen. Separate from the app's own colors. */
+@Composable
+fun IconColorSection() {
+    val context = LocalContext.current
+    var key by remember { mutableStateOf(currentIconKey(context)) }
+    Text("App icon color", color = White, fontSize = 16.sp)
+    Spacer(Modifier.height(4.dp))
+    Text(
+        "Changes the icon on your home screen. Your phone may close the app for a moment when it changes. " +
+            "Now: ${iconChoices.firstOrNull { it.key == key }?.label ?: "Black"}.",
+        color = Muted, fontSize = 14.sp,
+    )
+    Spacer(Modifier.height(10.dp))
+    for (line in iconChoices.chunked(8)) {
+        Row(Modifier.padding(bottom = 10.dp)) {
+            for (choice in line) {
+                val on = choice.key == key
+                Box(
+                    Modifier.padding(end = 8.dp).size(34.dp)
+                        .background(Color(choice.argb), CircleShape)
+                        .border(if (on) 3.dp else 1.dp, if (on) White else Line, CircleShape)
+                        .clickable { setIconKey(context, choice.key); key = choice.key },
+                )
+            }
+        }
+    }
+}

@@ -146,7 +146,7 @@ step("stop button", lambda: window._stop())
 # ---- your colors, picture and profile ----------------------------------------
 from PySide6.QtGui import QImage as _QImage
 from app import look as looks
-from app.personal import WelcomeDialog, make_shortcut, round_pixmap
+from app.personal import WelcomeDialog, icon_pixmap, make_shortcut, round_pixmap
 
 
 def red_picture():
@@ -254,6 +254,10 @@ def check_profile():
     expect(not round_pixmap("", 64).isNull(), "default person picture failed")
     ico = root / "t.ico"
     expect(looks.write_ico(picture, ico) and ico.stat().st_size > 100, "icon file was not made")
+    for color in looks.ICON_COLORS:
+        window.settings_page.profile_panel._pick_icon_color(color[0])
+        expect(not icon_pixmap(64, color[0]).isNull(), "icon color picture failed")
+    window.settings_page.profile_panel._pick_icon_color("black")
     print(make_shortcut(picture))
     window.settings.set("profile_picture", "")
     window.settings.set("profile_name", "")

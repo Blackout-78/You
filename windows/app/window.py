@@ -15,7 +15,7 @@ from . import look as looks
 from .lyricspanel import LyricsPanel
 from .music_pages import MusicSection
 from .pages import SettingsPage
-from .personal import round_pixmap
+from .personal import icon_pixmap, round_pixmap
 from .player import Player
 from .playerbar import PlayerBar
 from .scanner import ScanWorker
@@ -196,10 +196,15 @@ class MainWindow(QMainWindow):
         path = self.settings.get("profile_picture")
         if path and not os.path.isfile(path):
             path = ""
-        icon = QIcon(path) if path else QIcon(resource_path("assets/icon.ico"))
+        color = self.settings.get("icon_color")
+        if path:
+            icon = QIcon(path)
+            self.logo.setPixmap(round_pixmap(path, 36))
+        else:
+            icon = QIcon(icon_pixmap(256, color))
+            self.logo.setPixmap(icon_pixmap(36, color))
         self.setWindowIcon(icon)
         QApplication.instance().setWindowIcon(icon)
-        self.logo.setPixmap(round_pixmap(path, 36))
         self.name_label.setText(self.settings.get("profile_name") or APP_NAME)
 
     # ---- layout -----------------------------------------------------------

@@ -47,6 +47,26 @@ def round_pixmap(path, size):
     return out
 
 
+def icon_pixmap(size, key):
+    """The default icon: a rounded square in the icon color you chose, with a person shape."""
+    from PySide6.QtGui import QPainterPath
+    spec = next((c for c in looks.ICON_COLORS if c[0] == key), looks.ICON_COLORS[0])
+    out = QPixmap(size, size)
+    out.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(out)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    square = QPainterPath()
+    square.addRoundedRect(QRectF(0, 0, size, size), size * 0.19, size * 0.19)
+    painter.setClipPath(square)
+    painter.fillRect(0, 0, size, size, QColor(spec[2]))
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor("#141414" if spec[3] else "#ebebeb"))
+    painter.drawEllipse(QRectF(size * 0.36, size * 0.20, size * 0.28, size * 0.28))
+    painter.drawEllipse(QRectF(size * 0.24, size * 0.54, size * 0.52, size * 0.52))
+    painter.end()
+    return out
+
+
 def QPainterPathCircle(size):
     from PySide6.QtGui import QPainterPath
     path = QPainterPath()
@@ -455,7 +475,29 @@ class ProfilePanel(QWidget):
         self.name.editingFinished.connect(self._name_done)
         lay.addWidget(self.name)
 
-        self.shortcut = _action("Make a shortcut with my picture")
+        lay.addWidget(_note("Icon color: used for the window, taskbar and shortcut icon when you have no picture."))
+        dots = QHBoxLayout()
+        dots.setSpacing(6)
+        self.dot_group = QButtonGroup(self)
+        self.dot_group.setExclusive(True)
+        for key, label, hexv, _dark in looks.ICON_COLORS:
+            dot = QPushButton()
+            dot.setCheckable(True)
+            dot.setFixedSize(26, 26)
+            dot.setToolTip(label)
+            dot.setCursor(Qt.CursorShape.PointingHandCursor)
+            dot.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            dot.setStyleSheet(
+                f"QPushButton {{ background: {hexv}; border: 1px solid #777777; border-radius: 13px; }}"
+                f"QPushButton:checked {{ border: 3px solid #ffffff; }}")
+            dot.setChecked(settings.get("icon_color") == key)
+            self.dot_group.addButton(dot)
+            dot.clicked.connect(lambda _=False, k=key: self._pick_icon_color(k))
+            dots.addWidget(dot)
+        dots.addStretch(1)
+        lay.addLayout(dots)
+
+        self.shortcut = _action("Make a shortcut")
         self.shortcut.clicked.connect(self._make_shortcut)
         shortcut_row = QHBoxLayout()
         shortcut_row.addWidget(self.shortcut)
@@ -467,7 +509,8 @@ class ProfilePanel(QWidget):
 
     def refresh(self):
         path = self.settings.get("profile_picture")
-        self.avatar.setPixmap(round_pixmap(path if path and Path(path).is_file() else "", 96))
+        has_picture = bool(path and Path(path).is_file())
+        self.avatar.setPixmap(round_pixmap(path, 96) if has_picture else icon_pixmap(96, self.settings.get("icon_color")))
         self.remove.setEnabled(bool(path))
         self.choose.setText("Change picture…" if path else "Choose picture…")
 
@@ -488,21 +531,30 @@ class ProfilePanel(QWidget):
         self.refresh()
         self.profileChanged.emit()
 
+    def _pick_icon_color(self, key):
+        self.settings.set("icon_color", key)
+        self.refresh()
+        self.profileChanged.emit()
+
     def _name_done(self):
         self.settings.set("profile_name", self.name.text().strip())
         self.profileChanged.emit()
 
     def _make_shortcut(self):
-        self.message.setText(make_shortcut(self.settings.get("profile_picture")))
+        self.message.setText(make_shortcut(self.settings.get("profile_picture"), self.settings.get("icon_color")))
 
 
-def make_shortcut(picture):
+def make_shortcut(picture, icon_color="black"):
     """Puts a shortcut named You on the Desktop and in the Start menu, with your picture as its icon."""
     if sys.platform != "win32":
         return "Shortcuts can only be made on Windows."
     if not getattr(sys, "frozen", False):
         return "Shortcuts work from the installed You.exe, not from the source code."
-    source = picture if picture and Path(picture).is_file() else resource_path("assets/icon.png")
+    if picture and Path(picture).is_file():
+        source = picture
+    else:
+        source = str(data_dir() / "icon-color.png")
+        icon_pixmap(256, icon_color).save(source, "PNG")
     ico = data_dir() / "shortcut-icon.ico"
     if not looks.write_ico(source, ico):
         return "That picture could not be read."

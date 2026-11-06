@@ -40,6 +40,8 @@ fun SettingsScreen(vm: AppViewModel) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             ProfileSection(vm)
             Spacer(Modifier.height(32.dp))
+            IconColorSection()
+            Spacer(Modifier.height(22.dp))
             AppearanceSection(vm)
             Spacer(Modifier.height(32.dp))
             Text("Layout", color = White, fontSize = 16.sp)

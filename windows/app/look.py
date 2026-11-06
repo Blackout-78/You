@@ -27,6 +27,17 @@ PRESETS = [
 ]
 
 
+# The icon colors (the same list as the Android app). The last value says the person shape should be dark.
+ICON_COLORS = [
+    ("black", "Black", "#000000", False), ("gray", "Gray", "#6B6B6B", False), ("white", "White", "#F2F2F2", True),
+    ("red", "Red", "#D32F2F", False), ("orange", "Orange", "#F57C00", False), ("amber", "Amber", "#FFB300", True),
+    ("yellow", "Yellow", "#FDD835", True), ("green", "Green", "#2E7D32", False), ("teal", "Teal", "#00897B", False),
+    ("cyan", "Cyan", "#00ACC1", True), ("blue", "Blue", "#1E66D6", False), ("indigo", "Indigo", "#3949AB", False),
+    ("purple", "Purple", "#7B1FA2", False), ("pink", "Pink", "#E91E63", False), ("brown", "Brown", "#6D4C41", False),
+    ("rose", "Rose", "#F8BBD0", True),
+]
+
+
 def normalize(raw):
     """Fills in anything missing, so a half-empty or damaged saved look still works."""
     out = {k: list(v) if isinstance(v, list) else v for k, v in DEFAULT.items()}
