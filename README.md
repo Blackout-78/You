@@ -51,7 +51,7 @@ These are design previews of the real screens. Photos from a phone will replace 
 - [x] **Stage 3:** Profile picture and name, welcome screen, shortcut with your picture
 - [x] **Stage 4:** App icon color (16 colors) on Android; icon color for the window, taskbar and shortcut on Windows
 - [x] **Stage 5:** Android and Windows builds publish themselves on GitHub
-- [ ] Tested on a real phone (not done yet; the Windows build is tested automatically)
+- [x] Tested on a real phone (Android); the Windows build is also tested automatically
 - [ ] Permanent signing key (see the end of this page)
 
 ## Download and install

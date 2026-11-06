@@ -70,7 +70,7 @@ jobs:
 
           Your music, movies and TV shows on your phone. Offline and private: no internet permission, no ads, no tracking, nothing collected.
 
-          **Status:** builds and passes its checks. Not yet tested on a real phone. $KEYLINE
+          **Status:** tested on a real phone, and the build passes its checks. $KEYLINE
 
           **What it does**
           - **Movies and TV Shows:** found automatically by file name, with posters, resume, subtitles and favorites.
