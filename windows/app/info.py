@@ -1,0 +1,2 @@
+APP_NAME = "You"
+VERSION = "1.0.0"

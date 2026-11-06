@@ -1,0 +1,17 @@
+# build files
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+windows/dist/
+windows/build/
+windows/*.spec
+windows/shots/
+windows/pkg/
+windows/*.zip
+__pycache__/
+*.pyc
+# the unlocked signing key must never be uploaded (only the encrypted copy is kept)
+*.jks
+*.keystore

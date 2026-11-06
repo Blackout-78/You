@@ -1,0 +1,81 @@
+name: Build Windows app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install the tools
+        run: python -m pip install PySide6 mutagen pyinstaller
+      - name: Self test from source (real Qt, every page opened)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python selftest.py shots
+      - name: Build You.exe
+        run: python -m PyInstaller --noconfirm --clean --noconsole --onefile --name You --icon assets\icon.ico --add-data "assets;assets" main.py
+      - name: Check the .exe really starts
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $env:APPDATA = "$PWD\exe_test_appdata"
+          New-Item -ItemType Directory -Force $env:APPDATA | Out-Null
+          $p = Start-Process -FilePath "dist\You.exe" -ArgumentList "--demo","--selftest" -PassThru
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Error "The exe did not finish in time"; exit 1 }
+          if (-not (Test-Path "$env:APPDATA\You\selftest_ok.txt")) {
+            if (Test-Path "$env:APPDATA\You\crash.log") { Get-Content "$env:APPDATA\You\crash.log" }
+            if (Test-Path "$env:APPDATA\You\native_crash.log") { Get-Content "$env:APPDATA\You\native_crash.log" }
+            Write-Error "The exe started but did not reach the end of its self test"; exit 1
+          }
+          Write-Host "The exe starts and draws every page."
+      - name: Make the You folder (exe + shortcuts + uninstaller) and test them
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "pkg\You" | Out-Null
+          Copy-Item dist\You.exe "pkg\You\"
+          Copy-Item package\* "pkg\You\"
+          # test: make shortcuts, then uninstall quietly (keeping data) and check everything is gone
+          $test = Join-Path $env:RUNNER_TEMP "you_test"
+          Copy-Item "pkg\You" $test -Recurse
+          & cmd /c "`"$test\Install shortcuts.bat`" /quiet"
+          $start = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\You.lnk"
+          if (-not (Test-Path $start)) { Write-Error "Shortcut was not created"; exit 1 }
+          & cmd /c "`"$test\Uninstall You.bat`" /quiet"
+          $gone = $false
+          foreach ($i in 1..30) { Start-Sleep 1; if (-not (Test-Path $test) -and -not (Test-Path $start)) { $gone = $true; break } }
+          if (-not $gone) {
+            Write-Host "folder still there: $(Test-Path $test)  shortcut still there: $(Test-Path $start)"
+            Get-ChildItem $env:TEMP -Filter "you_uninstall*" | ForEach-Object { Write-Host "left behind: $($_.FullName)" }
+            if (Test-Path "$env:TEMP\you_uninstall.log") { Get-Content "$env:TEMP\you_uninstall.log" }
+            Write-Error "Uninstaller did not remove the folder and shortcut"; exit 1
+          }
+          Write-Host "Shortcuts and uninstaller work."
+          Compress-Archive -Path "pkg\You" -DestinationPath You-Windows.zip -Force
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: You-exe
+          path: windows/You-Windows.zip
+      - name: Publish You.exe as a release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "windows-${{ github.run_number }}" You-Windows.zip dist\You.exe `
+            --title "You for Windows ${{ github.run_number }}" `
+            --notes "Download You-Windows.zip, unzip it, and open the You folder. It has You.exe, a shortcut maker and an uninstaller. You.exe alone is also here if you only want the program."
