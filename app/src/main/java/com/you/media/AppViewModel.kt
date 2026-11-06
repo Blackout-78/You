@@ -109,7 +109,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("profile_picture", profilePicture).apply()
     }
 
-    fun setProfileName(name: String) {
+    fun changeProfileName(name: String) {
         profileName = name.take(30)
         prefs.edit().putString("profile_name", profileName).apply()
     }

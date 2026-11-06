@@ -272,7 +272,7 @@ fun ProfileSection(vm: AppViewModel) {
     }
     Spacer(Modifier.height(10.dp))
     OutlinedTextField(
-        value = vm.profileName, onValueChange = { vm.setProfileName(it) },
+        value = vm.profileName, onValueChange = { vm.changeProfileName(it) },
         label = { Text("Your name (optional)") }, singleLine = true,
         colors = youFieldColors(), modifier = Modifier.fillMaxWidth(),
     )
@@ -315,7 +315,7 @@ fun WelcomeScreen(vm: AppViewModel) {
         }
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
-            value = vm.profileName, onValueChange = { vm.setProfileName(it) },
+            value = vm.profileName, onValueChange = { vm.changeProfileName(it) },
             label = { Text("Your name (optional)") }, singleLine = true,
             colors = youFieldColors(), modifier = Modifier.fillMaxWidth(),
         )
