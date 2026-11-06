@@ -59,6 +59,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "$SIGNED" = "release" ]; then
+            KEYLINE="Signed with the permanent key. It installs over the previous version and keeps your data."
+          else
+            KEYLINE="Signed with a test key. Uninstall the old version before installing this one."
+          fi
+          RAW=https://raw.githubusercontent.com/${{ github.repository }}/main/docs/screenshots
+          cat > notes.md <<EOF
+          ## You for Android ${{ github.run_number }}
+
+          Your music, movies and TV shows on your phone. Offline and private: no internet permission, no ads, no tracking, nothing collected.
+
+          **Status:** builds and passes its checks. Not yet tested on a real phone. $KEYLINE
+
+          **What it does**
+          - **Movies and TV Shows:** found automatically by file name, with posters, resume, subtitles and favorites.
+          - **Music:** artists, albums, songs, playlists, favorites, lyrics and cover art.
+          - **Make it yours:** your own picture and name, any color for the light, middle and dark tones, a background picture, and a home-screen icon color.
+          - **Browse or Grid:** choose the layout for each tab.
+
+          <img src="$RAW/01-movies.png" width="150"> <img src="$RAW/03-artist.png" width="150"> <img src="$RAW/05-colors.png" width="150"> <img src="$RAW/08-picture-background.png" width="150">
+
+          *Design previews. All screens and install steps are on the [front page](https://github.com/${{ github.repository }}#readme).*
+          EOF
+          sed -i 's/^          //' notes.md
           gh release create "android-${{ github.run_number }}" You.apk \
             --title "You for Android ${{ github.run_number }}" \
-            --notes "Download You.apk and install it on your phone. Signed: $SIGNED key."
+            --notes-file notes.md
