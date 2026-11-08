@@ -77,19 +77,6 @@ These are design previews of the real screens. Photos from a phone will replace 
 5. To give Music, Movies or TV Shows its own colors, choose that name, then turn on **Use my own colors here**.
 6. Under **App icon color**, tap a color dot to change the icon on your home screen.
 
-## Build it yourself
-
-Every push to this repository builds both apps automatically (see `.github/workflows`). The Android app is in `app/`, the Windows app is in `windows/`.
-
-## For the maintainer: permanent signing key
-
-The release key is stored encrypted in `release.jks.enc`. Until the secret below is added, builds use a throwaway test key, so a new version must be installed after uninstalling the old one.
-
-1. Open the repository **Settings** > **Secrets and variables** > **Actions**.
-2. Choose **New repository secret**.
-3. Name: `KEY_PASSPHRASE`
-4. Value: the passphrase from when the project was set up.
-5. Choose **Add secret**.
 
 ## License
 
