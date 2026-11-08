@@ -67,17 +67,6 @@ These are design previews of the real screens. Photos from a phone will replace 
 7. Open **You**.
 8. Tap **Allow** when it asks to read your music and videos.
 
-### Windows
-
-1. On your PC, open the [latest release](https://github.com/Blackout-78/You/releases).
-2. Find the newest release whose name starts with **You for Windows**.
-3. Click **You-Windows.zip** to download it.
-4. Right-click the downloaded zip and choose **Extract All**.
-5. Open the **You** folder and double-click **You.exe**.
-6. If Windows says "Windows protected your PC", click **More info**, then click **Run anyway**.
-7. Optional: double-click **Install shortcuts.bat** to add You to your Desktop and Start menu.
-
-To remove it, double-click **Uninstall You.bat** in the same folder.
 
 ## Make it yours
 
