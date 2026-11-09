@@ -283,15 +283,15 @@ class SettingsPage(QScrollArea):
         self.sections = {
             "music": FolderSection(
                 "Music",
-                "The folder that holds your artist folders, for example D:\\MUSIC\\ALLmusic",
+                "The folder that holds your artist folders, for example C:\\Users\\you\\Music",
                 "Add music folder\u2026", "Rescan music"),
             "movies": FolderSection(
                 "Movies",
-                "The folder that holds your movie folders, for example D:\\BnM\\TV & Movie\\Movie",
+                "The folder that holds your movie folders, for example C:\\Users\\you\\Videos\\Movies",
                 "Add movies folder\u2026", "Rescan movies"),
             "tv": FolderSection(
                 "TV Shows",
-                "The folder that holds your show folders, for example D:\\BnM\\TV & Movie\\TV",
+                "The folder that holds your show folders, for example C:\\Users\\you\\Videos\\TV",
                 "Add TV folder\u2026", "Rescan TV"),
         }
         keys = {"music": "music_folders", "movies": "movie_folders", "tv": "tv_folders"}
