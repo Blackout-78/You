@@ -24,28 +24,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a  # v4
         with:
           gradle-version: 8.9
-      - name: Unlock the release key (only if the KEY_PASSPHRASE secret exists)
+      - name: Load the signing key
         env:
-          KEY_PASSPHRASE: ${{ secrets.KEY_PASSPHRASE }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$KEY_PASSPHRASE" ]; then
-            openssl enc -d -aes-256-cbc -pbkdf2 -in release.jks.enc -out "$RUNNER_TEMP/release.jks" -pass env:KEY_PASSPHRASE
-            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-            echo "KEYSTORE_PASSWORD=$KEY_PASSPHRASE" >> "$GITHUB_ENV"
-            echo "SIGNED=release" >> "$GITHUB_ENV"
-          else
-            echo "No KEY_PASSPHRASE secret: building with a test key."
-            echo "SIGNED=test" >> "$GITHUB_ENV"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::The KEYSTORE_BASE64 secret is missing. Add KEYSTORE_BASE64, KEYSTORE_PASSWORD and KEY_ALIAS under Settings > Secrets and variables > Actions, then run this workflow again."
+            exit 1
           fi
+          # Remove spaces, line breaks and a pasted label, which copying on Windows can add.
+          printf '%s' "$KEYSTORE_BASE64" | sed 's/KEYSTORE_BASE64//g' | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Check the signing key and password
+        env:
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          STORE_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          PW=$(printf '%s' "$STORE_PASSWORD" | tr -d ' \r\n\t')
+          AL=$(printf '%s' "$STORE_ALIAS" | tr -d ' \r\n\t')
+          if ! keytool -list -keystore "$KEYSTORE_FILE" -storepass "$PW" -alias "$AL" > /dev/null 2>&1; then
+            echo "::error::The key, KEYSTORE_PASSWORD or KEY_ALIAS secret doesn't match. Paste all three again from the .txt files."
+            exit 1
+          fi
+          echo "KEYSTORE_PASSWORD=$PW" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=$AL" >> "$GITHUB_ENV"
+
       - name: Build the APK
         run: |
-          if [ "$SIGNED" = "release" ]; then
-            gradle :app:assembleRelease --no-daemon
-            cp app/build/outputs/apk/release/app-release.apk You.apk
-          else
-            gradle :app:assembleDebug --no-daemon
-            cp app/build/outputs/apk/debug/app-debug.apk You.apk
-          fi
+          gradle :app:assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk You.apk
       - name: Check the APK has no internet permission
         run: |
           APKANALYZER=$(find "$ANDROID_HOME" -name apkanalyzer -type f | head -1)
@@ -61,11 +69,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$SIGNED" = "release" ]; then
-            KEYLINE="Signed with the permanent key. It installs over the previous version and keeps your data."
-          else
-            KEYLINE="Signed with a test key. Uninstall the old version before installing this one."
-          fi
+          KEYLINE="Signed with the permanent key. It installs over the previous version and keeps your data."
           RAW=https://raw.githubusercontent.com/${{ github.repository }}/main/docs/screenshots
           cat > notes.md <<EOF
           ## You for Android ${{ github.run_number }}

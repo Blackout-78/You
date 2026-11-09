@@ -16,14 +16,14 @@ android {
         versionName = "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
     }
 
-    // The release key is unlocked by the build robot only. Without it the build still works, signed with a test key.
+    // The release key comes from GitHub Secrets (the build robot loads it). A local build without it is signed with a test key.
     val keystoreFile = System.getenv("KEYSTORE_FILE")
     signingConfigs {
         if (keystoreFile != null && file(keystoreFile).exists()) {
             create("release") {
                 storeFile = file(keystoreFile)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = "you"
+                keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEYSTORE_PASSWORD")
             }
         }
