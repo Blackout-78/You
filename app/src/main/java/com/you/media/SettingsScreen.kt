@@ -128,6 +128,11 @@ fun SettingsScreen(vm: AppViewModel) {
                     "It collects nothing and shares nothing. Everything it remembers stays on this phone.",
                 color = Muted, fontSize = 14.sp,
             )
+
+            Spacer(Modifier.height(32.dp))
+            Text("About", color = White, fontSize = 16.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(Version.full, color = Muted, fontSize = 14.sp)
         }
     }
 

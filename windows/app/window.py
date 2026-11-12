@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 from . import db
 from .demo import demo_items
-from .info import APP_NAME
+from .info import APP_NAME, BUILD, VERSION_LINE
 from . import look as looks
 from .browse import fitted_pixmap
 from .music_pages import MusicSection
@@ -255,6 +255,14 @@ class MainWindow(QMainWindow):
                 lay.addStretch(1)
             lay.addWidget(button)
         self.nav.idClicked.connect(self._on_nav)
+        stamp = QPushButton(f"build {BUILD}")
+        stamp.setFlat(True)
+        stamp.setCursor(Qt.CursorShape.PointingHandCursor)
+        stamp.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        stamp.setToolTip(VERSION_LINE)
+        stamp.setStyleSheet("QPushButton { border: none; color: #777; font-size: 10px; text-align: left; padding: 2px 4px; }")
+        stamp.clicked.connect(lambda: self.nav.button(3).click())
+        lay.addWidget(stamp)
         return side
 
     # ---- player -----------------------------------------------------------

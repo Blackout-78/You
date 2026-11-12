@@ -191,6 +191,7 @@ fun App(vm: AppViewModel) {
 
 @Composable
 private fun TabBar(vm: AppViewModel) {
+    Box(Modifier.fillMaxWidth()) {
     Column(Modifier.fillMaxWidth()) {
         androidx.compose.material3.HorizontalDivider(color = Line)
         androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().height(52.dp)) {
@@ -205,5 +206,10 @@ private fun TabBar(vm: AppViewModel) {
                 }
             }
         }
+    }
+    Text(
+        Version.tag, color = Muted, fontSize = 9.sp,
+        modifier = Modifier.align(Alignment.BottomStart).clickable { vm.selectTab(Tab.Settings) }.padding(start = 6.dp, bottom = 2.dp),
+    )
     }
 }

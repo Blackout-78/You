@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 
 from .grid import MediaGrid
-from .info import APP_NAME, VERSION
+from .info import APP_NAME, VERSION, VERSION_LINE
 from .personal import ColorsPanel, ProfilePanel
 
 MIN_INCHES = 0.25
@@ -310,7 +310,7 @@ class SettingsPage(QScrollArea):
         ))
 
         lay.addWidget(self._heading("About"))
-        lay.addWidget(self._note(f"{APP_NAME} {VERSION}"))
+        lay.addWidget(self._note(VERSION_LINE))
         lay.addStretch(1)
 
     def _heading(self, text):
