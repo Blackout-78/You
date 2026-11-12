@@ -65,7 +65,7 @@ fun MiniPlayer(vm: AppViewModel) {
     val shown = if (dragging) dragValue else position.coerceIn(0L, p.durationMs.coerceAtLeast(1L)).toFloat()
     val hasTrack = p.mediaId != null
 
-    Column(Modifier.fillMaxWidth().background(Black)) {
+    Column(Modifier.fillMaxWidth().background(Black).clickable(enabled = hasTrack && !p.isVideo) { vm.showNowPlaying = true }) {
         HorizontalDivider(color = Line)
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 10.dp),

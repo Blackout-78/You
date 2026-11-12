@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Slider
@@ -139,6 +142,42 @@ fun NowPlayingScreen(vm: AppViewModel) {
                 }
             }
             item { HorizontalDivider(color = Line, modifier = Modifier.padding(top = 4.dp)) }
+            val lyr = vm.lyrics
+            if (!p.isVideo && lyr != null) {
+                item { SectionHeader("Lyrics") }
+                items(lyr.lines.size) { i ->
+                    Text(lyr.lines[i].text.ifEmpty { " " }, color = Soft, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp))
+                }
+                item { HorizontalDivider(color = Line, modifier = Modifier.padding(top = 12.dp)) }
+            }
+            val curAlbum = if (!p.isVideo && id != null) vm.library.artists.firstNotNullOfOrNull { a -> a.albums.find { al -> al.tracks.any { it.id == id } } } else null
+            if (curAlbum != null) {
+                item { SectionHeader("More from " + curAlbum.title) }
+                itemsIndexed(curAlbum.tracks) { i, t ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { p.playQueue(curAlbum.tracks, i) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("${i + 1}", color = Muted, fontSize = 13.sp, modifier = Modifier.width(32.dp))
+                        Text(t.title, color = if (t.id == id) White else Soft, fontWeight = if (t.id == id) FontWeight.Bold else FontWeight.Normal, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    }
+                }
+                val others = vm.library.artists.find { it.name == curAlbum.artist }?.albums?.filter { it.key != curAlbum.key }.orEmpty()
+                if (others.isNotEmpty()) {
+                    item { SectionHeader("More by " + curAlbum.artist) }
+                    item {
+                        androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(others.size) { i ->
+                                val al = others[i]
+                                Column(Modifier.width(110.dp).clickable { vm.showNowPlaying = false; vm.open(Screen.AlbumPage(al.artist, al.title)) }) {
+                                    Cover(vm.store.covers[al.key], al.albumId, al.title, Modifier.size(110.dp))
+                                    Text(al.title, color = White, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (p.shuffle) {
                 item { Text("Shuffle is on, so the order is a surprise.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp)) }
             } else if (queue.size > 1) {
