@@ -37,12 +37,18 @@ private fun nameFieldColors() = OutlinedTextFieldDefaults.colors(
 /** Pops up when you press and hold a song: pick a playlist, or make a new one. */
 @Composable
 fun AddToPlaylistDialog(vm: AppViewModel, trackId: Long, onDismiss: () -> Unit) {
+    val song = vm.library.tracksById[trackId]
     var newName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add to playlist") },
+        title = { Text(if (song != null) "This song" else "Add to playlist") },
         text = {
             Column {
+                if (song != null) {
+                    TextButton(onClick = { vm.player.playNext(song); onDismiss() }) { Text("Play next") }
+                    TextButton(onClick = { vm.player.addToQueue(song); onDismiss() }) { Text("Add to queue") }
+                    Text("Add to playlist", color = Muted, modifier = Modifier.padding(top = 6.dp))
+                }
                 vm.store.playlists.keys.sortedBy { it.lowercase() }.forEach { name ->
                     TextButton(onClick = { vm.store.addToPlaylist(name, trackId); onDismiss() }) { Text(name) }
                 }

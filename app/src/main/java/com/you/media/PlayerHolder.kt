@@ -89,6 +89,25 @@ class PlayerHolder(private val context: Context) {
 
     val isVideo: Boolean get() = mediaId?.startsWith("v") == true
 
+    /** Puts a song right after the one playing. */
+    fun playNext(track: Track) {
+        val c = controller ?: return
+        if (c.mediaItemCount == 0) { playQueue(listOf(track), 0); return }
+        c.addMediaItem(c.currentMediaItemIndex + 1, track.toMediaItem())
+    }
+
+    /** Puts a song at the end of the queue. */
+    fun addToQueue(track: Track) {
+        val c = controller ?: return
+        if (c.mediaItemCount == 0) { playQueue(listOf(track), 0); return }
+        c.addMediaItem(track.toMediaItem())
+    }
+
+    fun removeFromQueue(index: Int) {
+        val c = controller ?: return
+        if (index != c.currentMediaItemIndex && index in 0 until c.mediaItemCount) c.removeMediaItem(index)
+    }
+
     fun playQueue(tracks: List<Track>, index: Int) {
         playItems(tracks.map { it.toMediaItem() }, index, 0L)
     }
