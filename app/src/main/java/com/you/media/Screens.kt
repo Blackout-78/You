@@ -213,7 +213,27 @@ fun ArtistsScreen(vm: AppViewModel) {
                 else "No music found.\nCopy music onto your phone, then open Settings and press Refresh library."
             )
         } else {
+            val mostPlayed = remember(vm.library, vm.store.playCounts.toMap()) {
+                artists.flatMap { ar -> ar.albums.map { al -> Triple(ar.name, al, al.tracks.sumOf { vm.store.playCounts[it.id] ?: 0 }) } }
+                    .filter { it.third > 0 }.sortedByDescending { it.third }.take(14)
+            }
             LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize()) {
+                if (mostPlayed.isNotEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
+                    Column {
+                        SectionHeader("Most played")
+                        TileRow {
+                            mostPlayed.forEach { (artistName, album, _) ->
+                                Column(Modifier.width(140.dp).padding(end = 14.dp).clickable { vm.open(Screen.AlbumPage(artistName, album.title)) }) {
+                                    Cover(vm.store.covers[album.key], album.albumId, album.title, Modifier.fillMaxWidth().aspectRatio(1f))
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(album.title, color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(artistName, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                        SectionHeader("Artists")
+                    }
+                }
                 items(artists, key = { it.name }) { artist ->
                     val n = artist.albums.size
                     GridCell(

@@ -23,6 +23,8 @@ class Store(private val context: Context) {
     private val resume = HashMap<String, Long>()
     private val resumeAt = HashMap<String, Long>()
     val playlists = mutableStateMapOf<String, List<Long>>()
+    /** How many times each song was played (for Most played). Stays on this phone. */
+    val playCounts = mutableStateMapOf<Long, Int>()
 
     init {
         try {
@@ -32,6 +34,7 @@ class Store(private val context: Context) {
                 root.optJSONObject("covers")?.let { o -> o.keys().forEach { covers[it] = o.getString(it) } }
                 root.optJSONObject("resume")?.let { o -> o.keys().forEach { resume[it] = o.getLong(it) } }
                 root.optJSONObject("resumeAt")?.let { o -> o.keys().forEach { resumeAt[it] = o.getLong(it) } }
+                root.optJSONObject("plays")?.let { o -> o.keys().forEach { k -> k.toLongOrNull()?.let { id -> playCounts[id] = o.getInt(k) } } }
                 root.optJSONObject("playlists")?.let { o ->
                     o.keys().forEach { name ->
                         val a = o.getJSONArray(name)
@@ -58,6 +61,9 @@ class Store(private val context: Context) {
             val pl = JSONObject()
             playlists.forEach { (name, ids) -> pl.put(name, JSONArray(ids)) }
             root.put("playlists", pl)
+            val plays = JSONObject()
+            playCounts.forEach { (id, n) -> plays.put(id.toString(), n) }
+            root.put("plays", plays)
             file.writeText(root.toString())
         } catch (_: Exception) {
         }
@@ -66,9 +72,12 @@ class Store(private val context: Context) {
     /** Forgets everything the app saved: descriptions, covers you picked, favorites and video spots. */
     fun clearAll() {
         covers.values.forEach { runCatching { File(it).delete() } }
-        notes.clear(); covers.clear(); favorites.clear(); videoFavorites.clear(); resume.clear(); resumeAt.clear(); playlists.clear()
+        notes.clear(); covers.clear(); favorites.clear(); videoFavorites.clear(); resume.clear(); resumeAt.clear(); playlists.clear(); playCounts.clear()
         save()
     }
+
+    /** Counts one more play for a song. */
+    fun played(id: Long) { playCounts[id] = (playCounts[id] ?: 0) + 1; save() }
 
     fun setNote(key: String, text: String) {
         if (text.isBlank()) notes.remove(key) else notes[key] = text.trim()

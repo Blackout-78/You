@@ -123,6 +123,7 @@ fun App(vm: AppViewModel) {
 
     val screen = vm.stack.last()
     BackHandler(enabled = vm.stack.size > 1) { vm.back() }
+    BackHandler(enabled = vm.showNowPlaying) { vm.showNowPlaying = false }
     BackHandler(enabled = vm.showLyrics) { vm.showLyrics = false }
     BackHandler(enabled = vm.showVideo) { vm.showVideo = false }
     BackHandler(enabled = vm.fullscreen) { vm.fullscreen = false }
@@ -153,12 +154,15 @@ fun App(vm: AppViewModel) {
             vm.saveVideoPosition()
         }
     }
+    LaunchedEffect(vm.player.mediaId) { vm.recordPlayed(vm.player.mediaId) }
     LaunchedEffect(vm.player.mediaId, vm.library.tracksById.size) { vm.loadLyricsFor(vm.player.mediaId) }
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f)) {
             if (vm.showVideo && vm.player.isVideo) {
                 VideoScreen(vm)
+            } else if (vm.showNowPlaying && vm.player.mediaId != null) {
+                NowPlayingScreen(vm)
             } else if (vm.showLyrics && vm.player.mediaId != null && !vm.player.isVideo) {
                 LyricsScreen(vm)
             } else when (screen) {
@@ -179,7 +183,7 @@ fun App(vm: AppViewModel) {
             }
         }
         if (!vm.fullscreen) {
-            if (vm.player.mediaId != null) MiniPlayer(vm)
+            if (vm.player.mediaId != null && !vm.showNowPlaying) MiniPlayer(vm)
             TabBar(vm)
         }
     }

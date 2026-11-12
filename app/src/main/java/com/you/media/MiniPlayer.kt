@@ -1,6 +1,7 @@
 package com.you.media
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -74,7 +75,7 @@ fun MiniPlayer(vm: AppViewModel) {
                 Cover(coverPath, track?.albumId, p.title, Modifier.size(56.dp), videoUri)
                 Spacer(Modifier.width(12.dp))
             }
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).clickable(enabled = hasTrack && !p.isVideo) { vm.showNowPlaying = true }) {
                 Text(
                     p.title.ifEmpty { "Nothing playing" }, color = White, fontSize = 15.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,

@@ -135,6 +135,45 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var lyricsIndexing by mutableStateOf(false)
     var lyricsFolderSet by mutableStateOf(lyricsIndex.treeUri != null)
     var showLyrics by mutableStateOf(false)
+    var showNowPlaying by mutableStateOf(false)
+
+    // ---- sleep timer: pauses the music after the time you choose ----
+    var sleepMinutes by mutableStateOf(0)
+    private var sleepJob: Job? = null
+
+    fun cycleSleep() {
+        val steps = listOf(0, 15, 30, 60, 90, -1)
+        setSleep(steps[(steps.indexOf(sleepMinutes) + 1).mod(steps.size)])
+    }
+
+    fun setSleep(minutes: Int) {
+        sleepJob?.cancel()
+        sleepMinutes = minutes
+        if (minutes == -1) {          // end of this song
+            val startId = player.mediaId
+            sleepJob = viewModelScope.launch {
+                while (player.mediaId == startId) {
+                    val left = player.durationMs - player.position()
+                    if (player.durationMs > 0 && left < 600) { player.pause(); break }
+                    kotlinx.coroutines.delay(250)
+                }
+                sleepMinutes = 0
+            }
+        } else if (minutes > 0) {
+            sleepJob = viewModelScope.launch {
+                kotlinx.coroutines.delay(minutes * 60_000L)
+                player.pause()
+                sleepMinutes = 0
+            }
+        }
+    }
+
+    /** Called when a new song starts, for Most played. */
+    fun recordPlayed(mediaId: String?) {
+        val id = mediaId ?: return
+        if (id.startsWith("v")) return
+        id.toLongOrNull()?.let { store.played(it) }
+    }
     private var lyricsJob: Job? = null
 
     init {
@@ -194,6 +233,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         showVideo = false
         fullscreen = false
         showLyrics = false
+        showNowPlaying = false
+        setSleep(0)
     }
 
     fun toggleSubtitles() {
@@ -232,6 +273,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putString("tab", newTab.name).apply()
         tab = newTab
         showLyrics = false
+        showNowPlaying = false
         showVideo = false
         fullscreen = false
         stack.clear()

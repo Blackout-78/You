@@ -29,9 +29,13 @@ class PlayerHolder(private val context: Context) {
     var durationMs by mutableStateOf(0L)
     var shuffle by mutableStateOf(false)
     var repeat by mutableStateOf(Player.REPEAT_MODE_OFF)
+    var queueIndex by mutableStateOf(0)
+    /** Goes up whenever the list of songs changes, so the queue on screen refreshes. */
+    var queueVersion by mutableStateOf(0)
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) queueVersion++
             sync(player)
         }
     }
@@ -69,6 +73,7 @@ class PlayerHolder(private val context: Context) {
         durationMs = if (p.duration == C.TIME_UNSET) 0L else p.duration.coerceAtLeast(0L)
         shuffle = p.shuffleModeEnabled
         repeat = p.repeatMode
+        queueIndex = p.currentMediaItemIndex
     }
 
     private fun Track.toMediaItem(): MediaItem =
@@ -101,6 +106,20 @@ class PlayerHolder(private val context: Context) {
         val c = controller ?: return
         if (c.mediaItemCount == 0) { playQueue(listOf(track), 0); return }
         c.addMediaItem(track.toMediaItem())
+    }
+
+    fun queue(): List<QueueEntry> {
+        val c = controller ?: return emptyList()
+        return (0 until c.mediaItemCount).map { i ->
+            val item = c.getMediaItemAt(i)
+            QueueEntry(i, item.mediaId, item.mediaMetadata.title?.toString() ?: "", item.mediaMetadata.artist?.toString() ?: "")
+        }
+    }
+
+    fun jumpTo(index: Int) {
+        val c = controller ?: return
+        c.seekTo(index, 0L)
+        c.play()
     }
 
     fun removeFromQueue(index: Int) {
@@ -208,3 +227,5 @@ class PlayerHolder(private val context: Context) {
         }
     }
 }
+
+data class QueueEntry(val index: Int, val mediaId: String, val title: String, val artist: String)
