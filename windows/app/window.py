@@ -1,7 +1,7 @@
 import os
 import sys
 
-from PySide6.QtCore import Qt, QThread
+from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QColor, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QMainWindow, QPushButton,
@@ -12,8 +12,8 @@ from . import db
 from .demo import demo_items
 from .info import APP_NAME
 from . import look as looks
-from .lyricspanel import LyricsPanel
 from .music_pages import MusicSection
+from .nowplaying import NowPlayingPage
 from .pages import SettingsPage
 from .personal import icon_pixmap, round_pixmap
 from .player import Player
@@ -86,6 +86,9 @@ class MainWindow(QMainWindow):
         self._play_state = "stopped"
         self._current_track = None
         self._last_resume_save = 0
+        self._sleep_timer = QTimer(self)
+        self._sleep_timer.setSingleShot(True)
+        self._sleep_timer.timeout.connect(self._sleep_fired)
 
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(resource_path("assets/icon.ico")))
@@ -100,7 +103,7 @@ class MainWindow(QMainWindow):
         row.setSpacing(0)
 
         self.stack = QStackedWidget()
-        self.lyrics_panel = LyricsPanel()
+        self.lyrics_panel = NowPlayingPage()          # Now Playing: cover, lyrics and the queue
         self.video_view = VideoView()
         self.player_bar = PlayerBar()
         self.lyrics_panel.hide()
@@ -138,6 +141,15 @@ class MainWindow(QMainWindow):
         for library in self.libraries:
             library.set_inches(settings.get("grid_inches"))
             library.set_ignore_articles(settings.get("ignore_articles"))
+
+        for target in (self.music.library,):
+            rescan = QPushButton("Rescan")
+            rescan.setObjectName("link")
+            rescan.setCursor(Qt.CursorShape.PointingHandCursor)
+            rescan.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            rescan.setToolTip("Look for new songs in your music folder")
+            rescan.clicked.connect(lambda: self._start_scan("music"))
+            target.add_header_button(rescan)
 
         self._connect_player()
 
@@ -257,6 +269,13 @@ class MainWindow(QMainWindow):
             self.player.stateChanged.connect(section.state_changed)
 
         self.music.favoritesChanged.connect(self._refresh_heart)
+        self.music.queueRequested.connect(self._queue_track)
+        self.player.queueChanged.connect(self._refresh_queue)
+        self.player.sleepReached.connect(self._sleep_done)
+        self.lyrics_panel.jumpRequested.connect(self.player.jump_to_upcoming)
+        self.lyrics_panel.removeRequested.connect(self.player.remove_upcoming)
+        self.lyrics_panel.clearRequested.connect(self.player.clear_upcoming)
+        bar.sleepTimerChosen.connect(self._set_sleep_timer)
         self.player.trackChanged.connect(bar.set_track)
         self.player.trackChanged.connect(self._on_track)
         self.player.stateChanged.connect(bar.set_state)
@@ -295,6 +314,14 @@ class MainWindow(QMainWindow):
             ("Left", lambda: self.player.skip(-10000)),
             ("Right", lambda: self.player.skip(10000)),
             ("M", self._toggle_mute),
+            (Qt.Key.Key_MediaTogglePlayPause, self._toggle_play),
+            (Qt.Key.Key_MediaPlay, self.player.play),
+            (Qt.Key.Key_MediaPause, self.player.pause),
+            (Qt.Key.Key_MediaStop, self._stop),
+            (Qt.Key.Key_MediaNext, self.player.next),
+            (Qt.Key.Key_MediaPrevious, self.player.previous),
+            ("Ctrl+Right", self.player.next),
+            ("Ctrl+Left", self.player.previous),
         ):
             try:
                 shortcut = QShortcut(QKeySequence(keys), self)
@@ -311,6 +338,35 @@ class MainWindow(QMainWindow):
         self.video_view.stopRequested.connect(self._stop)
         self.video_view.video.toggleRequested.connect(self._toggle_play)
         self.video_view.video.skipRequested.connect(self.player.skip)
+
+    def _queue_track(self, track, play_next):
+        if play_next:
+            self.player.play_next(track)
+        else:
+            self.player.add_to_queue(track)
+
+    def _refresh_queue(self):
+        if self._lyrics_open:
+            self.lyrics_panel.set_queue(self.player.upcoming())
+
+    def _set_sleep_timer(self, minutes):
+        self._sleep_timer.stop()
+        self.player.set_stop_after_current(False)
+        if minutes == 0:
+            self.player_bar.set_sleep_timer("")
+        elif minutes == -1:
+            self.player.set_stop_after_current(True)
+            self.player_bar.set_sleep_timer("end of this song")
+        else:
+            self._sleep_timer.start(minutes * 60000)
+            self.player_bar.set_sleep_timer(f"{minutes} minutes")
+
+    def _sleep_done(self):
+        self.player_bar.set_sleep_timer("")
+
+    def _sleep_fired(self):
+        self.player.pause()
+        self.player_bar.set_sleep_timer("")
 
     def _on_state(self, state):
         self._play_state = state
@@ -412,7 +468,8 @@ class MainWindow(QMainWindow):
             self._show_video(track)
             self.player_bar.set_lyrics_available(False)
         else:
-            self.player_bar.set_lyrics_available(self.lyrics_panel.set_track(track))
+            self.lyrics_panel.set_track(track)
+            self.player_bar.set_lyrics_available(True)
 
     def _on_nav(self, index):
         self._close_lyrics()
@@ -427,6 +484,7 @@ class MainWindow(QMainWindow):
             self._close_lyrics()
         elif not self._video_open:
             self._lyrics_open = True
+            self.lyrics_panel.set_queue(self.player.upcoming())
             self.stack.hide()
             self.lyrics_panel.show()
             self.player_bar.set_lyrics_open(True)

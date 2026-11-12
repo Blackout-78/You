@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QCursor, QPixmap
 from PySide6.QtWidgets import (
-    QDialog, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton,
+    QDialog, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QPlainTextEdit, QPushButton,
     QScrollArea, QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -22,6 +22,29 @@ LEFT_WIDTH = 360
 
 
 # ---- small building blocks ------------------------------------------------------
+
+def attach_queue_menu(tree, track_at, emit):
+    """Right-click a song: Play next, or Add to queue."""
+    tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+    def show(pos):
+        item = tree.itemAt(pos)
+        if item is None:
+            return
+        track = track_at(tree.indexOfTopLevelItem(item))
+        if not track:
+            return
+        menu = QMenu(tree)
+        play_next = menu.addAction("Play next")
+        add = menu.addAction("Add to queue")
+        chosen = menu.exec(tree.viewport().mapToGlobal(pos))
+        if chosen is play_next:
+            emit(track, True)
+        elif chosen is add:
+            emit(track, False)
+
+    tree.customContextMenuRequested.connect(show)
+
 
 def _hline():
     line = QFrame()
@@ -273,6 +296,7 @@ class ArtistPage(QWidget):
     backRequested = Signal()
     albumActivated = Signal(object)
     playRequested = Signal(list, int)
+    queueRequested = Signal(dict, bool)       # song, True = play next / False = add to queue
 
     SHOWN = 5
 
@@ -348,6 +372,8 @@ class ArtistPage(QWidget):
         self.songs.setColumnWidth(3, 70)
         self.songs.setColumnWidth(4, 50)
         self.songs.itemClicked.connect(self._clicked)
+        attach_queue_menu(self.songs, lambda i: (self._queue()[i] if 0 <= i < len(self._songs) else None),
+                          lambda t, nxt: self.queueRequested.emit(t, nxt))
         self.songs.itemDoubleClicked.connect(self._double_clicked)
         songs_wrap = QWidget()
         songs_lay = QVBoxLayout(songs_wrap)
@@ -648,6 +674,7 @@ class ArtistGridPage(QWidget):
 class AlbumPage(QWidget):
     backRequested = Signal()
     playRequested = Signal(list, int)
+    queueRequested = Signal(dict, bool)
 
     def __init__(self):
         super().__init__()
@@ -707,6 +734,8 @@ class AlbumPage(QWidget):
         self.tree.setColumnWidth(2, 90)
         self.tree.setColumnWidth(3, 50)
         self.tree.itemClicked.connect(self._clicked)
+        attach_queue_menu(self.tree, lambda i: (self._queue()[i] if 0 <= i < len(self._tracks) else None),
+                          lambda t, nxt: self.queueRequested.emit(t, nxt))
         self.tree.itemDoubleClicked.connect(self._double_clicked)
         right_lay.addWidget(self.tree, 1)
 
@@ -814,6 +843,7 @@ class FavoritesPage(QWidget):
 
     backRequested = Signal()
     playRequested = Signal(list, int)
+    queueRequested = Signal(dict, bool)
     changed = Signal()                  # a favorite was removed here
 
     def __init__(self):
@@ -872,6 +902,8 @@ class FavoritesPage(QWidget):
         self.tree.setColumnWidth(2, 300)
         self.tree.setColumnWidth(3, 70)
         self.tree.itemClicked.connect(self._clicked)
+        attach_queue_menu(self.tree, lambda i: (self._queue()[i] if 0 <= i < len(self._rows) else None),
+                          lambda t, nxt: self.queueRequested.emit(t, nxt))
         self.tree.itemDoubleClicked.connect(self._double_clicked)
         body.addWidget(self.tree, 1)
         root.addLayout(body, 1)
@@ -956,6 +988,7 @@ class FavoritesPage(QWidget):
 
 class MusicSection(QStackedWidget):
     playRequested = Signal(list, int)
+    queueRequested = Signal(dict, bool)
     favoritesChanged = Signal()
 
     def __init__(self):
@@ -1005,6 +1038,8 @@ class MusicSection(QStackedWidget):
         self.artist_grid_page.backRequested.connect(self.reload)
         self.album_page.backRequested.connect(self._back_to_artist)
         self.album_page.playRequested.connect(self.playRequested.emit)
+        for page in (self.album_page, self.artist_page, self.favorites_page):
+            page.queueRequested.connect(self.queueRequested.emit)
 
     # same small API the other sections have
     def set_items(self, items):

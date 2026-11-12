@@ -12,6 +12,8 @@ class Player(QObject):
     positionChanged = Signal(int)    # milliseconds
     durationChanged = Signal(int)    # milliseconds
     errorOccurred = Signal(str)
+    sleepReached = Signal()          # the sleep timer's "end of this song" just stopped playback
+    queueChanged = Signal()          # the list of what plays next changed
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -26,6 +28,7 @@ class Player(QObject):
         self._pending_seek = 0
         self._shuffle = False
         self._repeat = "off"        # "off", "all" or "one"
+        self._stop_after_current = False   # sleep timer: "end of this song"
 
         self._media.positionChanged.connect(lambda ms: self.positionChanged.emit(int(ms)))
         self._media.durationChanged.connect(lambda ms: self.durationChanged.emit(int(ms)))
@@ -43,6 +46,66 @@ class Player(QObject):
         self._index = index
         self._rebuild_order()
         self._load_current()
+
+    # ---- the queue: what plays next ---------------------------------------
+
+    def current_track(self):
+        return self._queue[self._index] if 0 <= self._index < len(self._queue) else None
+
+    def upcoming(self):
+        """The tracks that will play after this one, in order."""
+        if self._pos < 0:
+            return []
+        return [self._queue[i] for i in self._order[self._pos + 1:]]
+
+    def play_next(self, track):
+        """Put a song right after the one playing."""
+        if self.current_track() is None:
+            self.play_queue([track], 0)
+            return
+        self._queue.append(dict(track))
+        self._order.insert(self._pos + 1, len(self._queue) - 1)
+        self.queueChanged.emit()
+
+    def add_to_queue(self, track):
+        """Put a song at the end of the queue."""
+        if self.current_track() is None:
+            self.play_queue([track], 0)
+            return
+        self._queue.append(dict(track))
+        self._order.append(len(self._queue) - 1)
+        self.queueChanged.emit()
+
+    def jump_to_upcoming(self, k):
+        pos = self._pos + 1 + k
+        if 0 <= pos < len(self._order):
+            self._pos = pos
+            self._index = self._order[pos]
+            self._load_current()
+
+    def remove_upcoming(self, k):
+        pos = self._pos + 1 + k
+        if not 0 <= pos < len(self._order):
+            return
+        gone = self._order.pop(pos)
+        del self._queue[gone]
+        self._order = [i - 1 if i > gone else i for i in self._order]
+        if gone < self._index:
+            self._index -= 1
+        self.queueChanged.emit()
+
+    def clear_upcoming(self):
+        if self._pos < 0:
+            return
+        keep = self._order[:self._pos + 1]
+        self._queue = [self._queue[i] for i in keep]
+        self._index = keep.index(self._index)
+        self._order = list(range(len(self._queue)))
+        self._pos = self._order[self._index]
+        self.queueChanged.emit()
+
+    def set_stop_after_current(self, on):
+        self._stop_after_current = bool(on)
 
     def position(self):
         return int(self._media.position())
@@ -130,6 +193,7 @@ class Player(QObject):
             self.errorOccurred.emit("Can't find this file. Is the drive connected?")
             return
         self.trackChanged.emit(track)
+        self.queueChanged.emit()
         self._pending_seek = 0
         if track.get("video") and self.resume_provider is not None:
             try:
@@ -154,7 +218,11 @@ class Player(QObject):
             self._media.setPosition(self._pending_seek)      # pick up where you left off
             self._pending_seek = 0
         if status == QMediaPlayer.MediaStatus.EndOfMedia:
-            if self._repeat == "one":
+            if self._stop_after_current:             # sleep timer: end of this song
+                self._stop_after_current = False
+                self._media.stop()
+                self.sleepReached.emit()
+            elif self._repeat == "one":
                 self._media.setPosition(0)
                 self._media.play()
             else:

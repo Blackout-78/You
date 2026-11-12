@@ -553,3 +553,11 @@ def clear_my_data(conn):
         for table in ("notes", "titles", "custom_covers", "favorites", "resume",
                       "playlist_items", "playlists"):
             conn.execute(f"DELETE FROM {table}")
+
+
+def cover_for_track(conn, path):
+    """The album cover of a song, for the Now Playing page and the queue."""
+    row = conn.execute(
+        "SELECT a.cover AS cover FROM tracks t JOIN albums a ON a.id = t.album_id WHERE t.path = ?", (path,)
+    ).fetchone()
+    return row["cover"] if row else None

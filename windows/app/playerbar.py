@@ -2,8 +2,9 @@ import math
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QVariantAnimation, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
+from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
-    QAbstractButton, QHBoxLayout, QLabel, QSlider, QStyle, QVBoxLayout, QWidget,
+    QAbstractButton, QHBoxLayout, QLabel, QMenu, QSlider, QStyle, QVBoxLayout, QWidget,
 )
 
 from .look import C
@@ -175,6 +176,11 @@ class PlayerButton(QAbstractButton):
             painter.drawLine(13, 15, 31, 15)
             painter.drawLine(13, 22, 31, 22)
             painter.drawLine(13, 29, 24, 29)
+        elif self.kind == "timer":
+            painter.drawEllipse(QRectF(14, 15, 16, 16))
+            painter.drawLine(22, 23, 22, 19)
+            painter.drawLine(22, 23, 25, 25)
+            painter.drawLine(19, 12, 25, 12)
 
 
 # play triangle and pause bars, both drawn as two four-point shapes so one can melt into the other
@@ -297,6 +303,7 @@ class PlayerBar(QWidget):
     previousClicked = Signal()
     lyricsClicked = Signal()
     seekRequested = Signal(int)
+    sleepTimerChosen = Signal(int)    # minutes; 0 = off, -1 = end of this song
 
     def __init__(self):
         super().__init__()
@@ -305,6 +312,7 @@ class PlayerBar(QWidget):
         self._lyrics_available = False
         self._lyrics_open = False
         self._favorite = False
+        self._timer_on = False
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(32, 14, 32, 14)
@@ -345,7 +353,8 @@ class PlayerBar(QWidget):
         self.stop_button = PlayerButton("stop", "Stop")
         self.skip_forward_button = PlayerButton("skip_forward", "Forward 10 seconds")
         self.next_button = PlayerButton("forward", "Next track")
-        self.lyrics_button = PlayerButton("lyrics", "Lyrics")
+        self.lyrics_button = PlayerButton("lyrics", "Now playing: lyrics and queue")
+        self.timer_button = PlayerButton("timer", "Sleep timer: off")
         self.mute_button = MuteButton()
         self.volume_slider = VolumeSlider()
         buttons.addWidget(self.heart_button)
@@ -361,6 +370,7 @@ class PlayerBar(QWidget):
         buttons.addStretch(1)
         buttons.addWidget(self.mute_button)
         buttons.addWidget(self.volume_slider)
+        buttons.addWidget(self.timer_button)
         buttons.addWidget(self.lyrics_button)
         outer.addLayout(buttons)
 
@@ -372,6 +382,7 @@ class PlayerBar(QWidget):
         self.next_button.clicked.connect(self.nextClicked.emit)
         self.heart_button.clicked.connect(self.heartClicked.emit)
         self.lyrics_button.clicked.connect(self.lyricsClicked.emit)
+        self.timer_button.clicked.connect(self._sleep_menu)
         self.mute_button.clicked.connect(self.muteClicked.emit)
         self.shuffle_button.clicked.connect(self.shuffleClicked.emit)
         self.repeat_button.clicked.connect(self.repeatClicked.emit)
@@ -435,12 +446,35 @@ class PlayerBar(QWidget):
         self.heart_button.set_active(favorite)
         self.heart_button.setToolTip("Remove from favorites" if favorite else "Add to favorites")
 
+    # ---- sleep timer ------------------------------------------------------
+
+    def _sleep_menu(self):
+        menu = QMenu(self)
+        choices = [("15 minutes", 15), ("30 minutes", 30), ("45 minutes", 45), ("1 hour", 60),
+                   ("End of this song", -1)]
+        actions = {menu.addAction(text): minutes for text, minutes in choices}
+        off = None
+        if self._timer_on:
+            menu.addSeparator()
+            off = menu.addAction("Turn off the timer")
+        chosen = menu.exec(QCursor.pos())
+        if chosen is off and off is not None:
+            self.sleepTimerChosen.emit(0)
+        elif chosen in actions:
+            self.sleepTimerChosen.emit(actions[chosen])
+
+    def set_sleep_timer(self, text):
+        """text = what to show in the tooltip, or "" when the timer is off."""
+        self._timer_on = bool(text)
+        self.timer_button.set_active(self._timer_on)
+        self.timer_button.setToolTip(f"Sleep timer: {text}" if text else "Sleep timer: off")
+
     # ---- lyrics button ----------------------------------------------------
 
     def set_lyrics_available(self, available):
         self._lyrics_available = available
         self.lyrics_button.setEnabled(available or self._lyrics_open)
-        self.lyrics_button.setToolTip("Lyrics" if available else "No lyrics for this track")
+        self.lyrics_button.setToolTip("Now playing: lyrics and queue" if available else "Now playing is for songs")
 
     def set_lyrics_open(self, is_open):
         self._lyrics_open = is_open

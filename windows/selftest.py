@@ -143,6 +143,44 @@ for kind, nav_index in (("movies", 0), ("tv", 1), ("music", 2)):
 step("browse artist page again", lambda: window.music.open_artist({"id": 1}))
 step("stop button", lambda: window._stop())
 
+def queue_checks():
+    def song(title):
+        path = root / f"queue-{title}.mp3"
+        path.write_bytes(b"x" * 10)
+        return {"path": str(path), "title": title, "artist": "Aurora Ridge", "album": "First Light", "duration": 100}
+    player = window.player
+    player.play_queue([song("T1"), song("T2"), song("T3")], 0)
+    player.play_next(song("A"))
+    player.add_to_queue(song("B"))
+    titles = [t["title"] for t in player.upcoming()]
+    assert titles == ["A", "T2", "T3", "B"], titles
+    player.remove_upcoming(1)
+    assert [t["title"] for t in player.upcoming()] == ["A", "T3", "B"]
+    player.jump_to_upcoming(1)                      # T3 now playing, B after it
+    assert player.current_track()["title"] == "T3"
+    assert [t["title"] for t in player.upcoming()] == ["B"]
+    player.clear_upcoming()
+    assert player.upcoming() == [] and player.current_track()["title"] == "T3"
+    window._queue_track(song("C"), True)
+    assert [t["title"] for t in player.upcoming()] == ["C"]
+
+
+step("queue: play next, add, remove, jump, clear", queue_checks)
+step("now playing page opens", lambda: window._toggle_lyrics())
+step("picture now playing", lambda: shot("now_playing"))
+step("now playing page closes", lambda: window._toggle_lyrics())
+
+
+def sleep_checks():
+    window._set_sleep_timer(15)
+    assert window._sleep_timer.isActive()
+    window._set_sleep_timer(-1)
+    assert not window._sleep_timer.isActive()
+    window._set_sleep_timer(0)
+
+
+step("sleep timer: set and cancel", sleep_checks)
+
 # ---- your colors, picture and profile ----------------------------------------
 from PySide6.QtGui import QImage as _QImage
 from app import look as looks

@@ -109,6 +109,12 @@ QTreeWidget::item {{ padding: 11px 8px; border-bottom: 1px solid {P2}; color: {S
 QTreeWidget::item:hover {{ background: {P1}; }}
 QTreeWidget::item:selected {{ background: {P2}; color: {L}; }}
 
+QFrame#lyricsBox {{ background: {P0}; border: 1px solid {LN2}; }}
+QListWidget#queueList {{ background: {P0}; border: none; outline: 0; font-size: 10.5pt; }}
+QListWidget#queueList::item {{ padding: 4px 8px; border: none; color: {S}; }}
+QListWidget#queueList::item:hover {{ background: {P2}; color: {L}; }}
+QLabel#npTitle {{ background: transparent; font-size: 20pt; font-weight: 700; }}
+QLabel#npKicker {{ background: transparent; color: {M}; font-size: 8pt; letter-spacing: 3px; }}
 QListWidget#lyricsList {{ background: {D}; border: none; outline: 0; font-size: 15pt; }}
 QListWidget#lyricsList::item {{ padding: 10px 24px; border: none; }}
 QListWidget#lyricsList::item:hover {{ background: transparent; }}

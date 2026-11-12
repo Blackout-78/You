@@ -18,7 +18,7 @@ class LyricsPanel(QWidget):
     seekRequested = Signal(int)
     closeRequested = Signal()
 
-    def __init__(self):
+    def __init__(self, embedded=False):
         super().__init__()
         self._times = []
         self._current = -1
@@ -51,6 +51,9 @@ class LyricsPanel(QWidget):
         line.setObjectName("hairline")
         line.setFixedHeight(1)
         root.addWidget(line)
+        if embedded:                 # inside the Now Playing page: no header of its own
+            header.hide()
+            line.hide()
 
         self.pages = QStackedWidget()
         self.message = QLabel("No lyrics for this track.")
