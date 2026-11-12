@@ -12,6 +12,7 @@ from . import db
 from .demo import demo_items
 from .info import APP_NAME
 from . import look as looks
+from .browse import fitted_pixmap
 from .music_pages import MusicSection
 from .nowplaying import NowPlayingPage
 from .pages import SettingsPage
@@ -331,6 +332,7 @@ class MainWindow(QMainWindow):
                 pass          # a missing shortcut must never stop the app from opening
         bar.seekRequested.connect(self.player.seek)
         bar.lyricsClicked.connect(self._toggle_lyrics)
+        bar.nowPlayingClicked.connect(self._open_now_playing)
 
         self.lyrics_panel.seekRequested.connect(self.player.seek)
         self.lyrics_panel.closeRequested.connect(self._close_lyrics)
@@ -462,12 +464,17 @@ class MainWindow(QMainWindow):
         conn = db.connect()
         try:
             self.player_bar.set_favorite(db.is_favorite(conn, track["path"]))
+            cover = None if track.get("video") else db.cover_for_track(conn, track["path"])
         finally:
             conn.close()
         if track.get("video"):
+            self.player_bar.set_cover(None)
             self._show_video(track)
             self.player_bar.set_lyrics_available(False)
         else:
+            if self._video_open:                 # a song is starting: the old video picture must go
+                self._hide_video()
+            self.player_bar.set_cover(fitted_pixmap(cover, 52, 52, self.devicePixelRatioF()))
             self.lyrics_panel.set_track(track)
             self.player_bar.set_lyrics_available(True)
 
@@ -489,6 +496,12 @@ class MainWindow(QMainWindow):
             self.lyrics_panel.show()
             self.player_bar.set_lyrics_open(True)
 
+    def _open_now_playing(self):
+        """Click on the cover or title in the player bar: album, lyrics and queue."""
+        track = self._current_track
+        if track and not track.get("video") and not self._lyrics_open:
+            self._toggle_lyrics()
+
     def _close_lyrics(self):
         if not self._lyrics_open:
             return
@@ -506,6 +519,16 @@ class MainWindow(QMainWindow):
             self._video_open = True
             self.stack.hide()
             self.video_view.show()
+
+    def _hide_video(self):
+        """Take the video picture away without stopping what plays now."""
+        if not self._video_open:
+            return
+        self._video_open = False
+        if self.video_view.video.isFullScreen():
+            self.video_view.video.setFullScreen(False)
+        self.video_view.hide()
+        self.stack.show()
 
     def _close_video(self):
         if not self._video_open:

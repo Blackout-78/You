@@ -164,7 +164,7 @@ def albums_for_artist(conn, artist_id):
 
 def get_album(conn, album_id):
     row = conn.execute(
-        "SELECT albums.id, albums.title, albums.year, albums.cover, albums.mbid, "
+        "SELECT albums.id, albums.title, albums.year, albums.cover, albums.mbid, albums.artist_id, "
         "artists.name AS artist FROM albums JOIN artists ON artists.id = albums.artist_id "
         "WHERE albums.id = ?", (album_id,)
     ).fetchone()

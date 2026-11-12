@@ -696,12 +696,12 @@ class AlbumPage(QWidget):
         self.blurb = BlurbBox()
         self.blurb.changed.connect(self._save_note)
 
-        right = QWidget()
-        right_lay = QVBoxLayout(right)
-        right_lay.setContentsMargins(32, 24, 32, 0)
-        right_lay.setSpacing(14)
-
-        top = QHBoxLayout()
+        # top: cover on the left; Play album and the description beside it
+        info = QWidget()
+        info_lay = QVBoxLayout(info)
+        info_lay.setContentsMargins(0, 0, 0, 0)
+        info_lay.setSpacing(14)
+        buttons = QHBoxLayout()
         self.play_album = QPushButton("Play album")
         self.play_album.setObjectName("action")
         self.play_album.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -709,11 +709,18 @@ class AlbumPage(QWidget):
         self.play_album.clicked.connect(lambda: self._play(0))
         hint = QLabel("Click a track number, or double-click a title, to play it.")
         hint.setObjectName("muted")
-        top.addWidget(self.play_album)
-        top.addSpacing(16)
-        top.addWidget(hint)
-        top.addStretch(1)
-        right_lay.addLayout(top)
+        buttons.addWidget(self.play_album)
+        buttons.addSpacing(16)
+        buttons.addWidget(hint)
+        buttons.addStretch(1)
+        info_lay.addLayout(buttons)
+        info_lay.addWidget(self.blurb)
+        info_lay.addStretch(1)
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(32, 24, 32, 12)
+        top_row.setSpacing(28)
+        top_row.addWidget(self.cover, 0, Qt.AlignmentFlag.AlignTop)
+        top_row.addWidget(info, 1)
 
         self.tree = QTreeWidget()
         self.tree.setColumnCount(4)
@@ -724,6 +731,7 @@ class AlbumPage(QWidget):
         self.tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
         self.tree.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         header_view = self.tree.header()
         header_view.setStretchLastSection(False)
         header_view.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
@@ -737,16 +745,30 @@ class AlbumPage(QWidget):
         attach_queue_menu(self.tree, lambda i: (self._queue()[i] if 0 <= i < len(self._tracks) else None),
                           lambda t, nxt: self.queueRequested.emit(t, nxt))
         self.tree.itemDoubleClicked.connect(self._double_clicked)
-        right_lay.addWidget(self.tree, 1)
-
-        body = QHBoxLayout()
-        body.setSpacing(0)
-        body.addWidget(_left_column(self.cover, self.blurb, ALBUM_COVER + 64))
-        body.addWidget(_vline())
-        body.addWidget(right, 1)
-        root.addLayout(body, 1)
+        songs = QWidget()
+        songs_lay = QVBoxLayout(songs)
+        songs_lay.setContentsMargins(32, 0, 32, 0)
+        songs_lay.addWidget(self.tree)
+        page = QWidget()
+        page_lay = QVBoxLayout(page)
+        page_lay.setContentsMargins(0, 0, 0, 16)
+        page_lay.setSpacing(0)
+        page_lay.addLayout(top_row)
+        page_lay.addWidget(songs)
+        page_lay.addStretch(1)
+        page_scroll = QScrollArea()
+        page_scroll.setWidgetResizable(True)
+        page_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        page_scroll.setWidget(page)
+        root.addWidget(page_scroll, 1)
 
         self.back.clicked.connect(self.backRequested.emit)
+
+    def _fit_tree(self):
+        """The list shows every song at once; the page scrolls instead of the list."""
+        n = self.tree.topLevelItemCount()
+        row = self.tree.sizeHintForRow(0) if n else 0
+        self.tree.setFixedHeight(max(1, n) * (row if row > 0 else 42) + 6)
 
     def show_album(self, album, tracks, note):
         self._album = album
@@ -775,6 +797,7 @@ class AlbumPage(QWidget):
             item.setToolTip(3, "Add to a playlist")
             self.tree.addTopLevelItem(item)
 
+        self._fit_tree()
         total = sum(t["duration"] or 0 for t in tracks)
         n = len(tracks)
         self.count.setText(f"{n} track{'s' if n != 1 else ''}  \u00b7  {format_total(total)}")
@@ -994,6 +1017,7 @@ class MusicSection(QStackedWidget):
     def __init__(self):
         super().__init__()
         self._artist_id = None
+        self._album_origin = None
         self.library = LibraryPage(
             "Music", aspect=1.0, nouns=("artist", "artists"),
             empty_title="No music yet", empty_hint="Add your music folder in Settings.",
@@ -1036,7 +1060,7 @@ class MusicSection(QStackedWidget):
         self.artist_page.backRequested.connect(self.reload)
         self.artist_grid_page.albumActivated.connect(self.open_album)
         self.artist_grid_page.backRequested.connect(self.reload)
-        self.album_page.backRequested.connect(self._back_to_artist)
+        self.album_page.backRequested.connect(self._album_back)
         self.album_page.playRequested.connect(self.playRequested.emit)
         for page in (self.album_page, self.artist_page, self.favorites_page):
             page.queueRequested.connect(self.queueRequested.emit)
@@ -1118,7 +1142,19 @@ class MusicSection(QStackedWidget):
         if self._artist_id is not None:
             self.open_artist({"id": self._artist_id})
 
+    def _album_back(self):
+        """The arrow on the album page: return to wherever the album was opened from."""
+        origin = self._album_origin
+        if origin is self.artist_page:
+            self._back_to_artist()
+        elif origin is None or origin in (self.album_page, self.library):
+            self.show_library()
+        else:
+            self.setCurrentWidget(origin)
+
     def open_album(self, item):
+        if self.currentWidget() is not self.album_page:
+            self._album_origin = self.currentWidget()
         conn = db.connect()
         try:
             album = db.get_album(conn, item["id"])
@@ -1128,7 +1164,10 @@ class MusicSection(QStackedWidget):
             note = db.get_note(conn, "album", db.album_note_key(album["artist"], album["title"]))
         finally:
             conn.close()
+        self._artist_id = album.get("artist_id", self._artist_id)
         self.album_page.show_album(album, tracks, note)
+        if self._album_origin is not self.artist_page:
+            self.album_page.back.setText("\u2190  Back")
         self.setCurrentWidget(self.album_page)
 
     # ---- player feedback --------------------------------------------------

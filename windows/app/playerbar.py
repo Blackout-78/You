@@ -1,7 +1,7 @@
 import math
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QVariantAnimation, Signal
-from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
+from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QPolygonF
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
     QAbstractButton, QHBoxLayout, QLabel, QMenu, QSlider, QStyle, QVBoxLayout, QWidget,
@@ -290,7 +290,26 @@ class VolumeSlider(SeekSlider):
         self.setFixedWidth(90)
 
 
+class ClickLabel(QLabel):
+    """A label that can be clicked."""
+
+    clicked = Signal()
+
+    def __init__(self, text=""):
+        super().__init__(text)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
+COVER_SIZE = 52
+
+
 class PlayerBar(QWidget):
+    nowPlayingClicked = Signal()      # the cover or the title was clicked: open album + lyrics
     shuffleClicked = Signal()
     repeatClicked = Signal()
     volumeChanged = Signal(int)
@@ -307,7 +326,7 @@ class PlayerBar(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setFixedHeight(132)
+        self.setFixedHeight(148)
         self._has_track = False
         self._lyrics_available = False
         self._lyrics_open = False
@@ -319,8 +338,16 @@ class PlayerBar(QWidget):
         outer.setSpacing(8)
 
         top = QHBoxLayout()
-        self.title = QLabel("Nothing playing")
+        top.setSpacing(12)
+        self.cover = ClickLabel()
+        self.cover.setFixedSize(COVER_SIZE, COVER_SIZE)
+        self.cover.setToolTip("Open album and lyrics")
+        self.cover.clicked.connect(self.nowPlayingClicked.emit)
+        self.cover.hide()
+        top.addWidget(self.cover)
+        self.title = ClickLabel("Nothing playing")
         self.title.setObjectName("trackTitle")
+        self.title.clicked.connect(self.nowPlayingClicked.emit)
         self.subtitle = QLabel("")
         self.subtitle.setObjectName("muted")
         top.addWidget(self.title)
@@ -409,6 +436,14 @@ class PlayerBar(QWidget):
         self.total.setText(format_time(track.get("duration", 0) * 1000))
         self._set_controls_enabled(True)
         self.heart_button.setEnabled(True)
+
+    def set_cover(self, pixmap):
+        """The album cover next to the title; None hides it (videos have no cover here)."""
+        if pixmap is None or pixmap.isNull():
+            self.cover.hide()
+            return
+        self.cover.setPixmap(pixmap)
+        self.cover.show()
 
     def set_state(self, state):
         self.play_button.show_playing(state == "playing")
