@@ -53,8 +53,8 @@ fun rememberNowCover(vm: AppViewModel): NowCover {
     val albumKey = remember(id, vm.library) { id?.let { albumKeyOf(vm, it) } }
     val movie = videoId?.let { vid -> vm.videos.movies.find { it.video.id == vid } }
     val videoUri = videoId?.let { vid ->
-        movie?.video?.art ?: vm.videos.shows.firstNotNullOfOrNull { sh ->
-            sh.seasons.firstNotNullOfOrNull { se -> se.episodes.find { it.video.id == vid }?.video?.art }
+        movie?.video?.uri ?: vm.videos.shows.firstNotNullOfOrNull { sh ->
+            sh.seasons.firstNotNullOfOrNull { se -> se.episodes.find { it.video.id == vid }?.video?.uri }
         }
     }
     val path = (albumKey ?: movie?.key)?.let { vm.store.covers[it] }

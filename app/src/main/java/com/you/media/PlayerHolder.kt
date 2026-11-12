@@ -180,6 +180,8 @@ class PlayerHolder(private val context: Context) {
         c.play()
     }
 
+    fun pause() { controller?.pause() }
+
     fun toggle() {
         val c = controller ?: return
         when {
