@@ -17,6 +17,8 @@ jobs:
         working-directory: windows
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: '3.13'
@@ -74,11 +76,13 @@ jobs:
         with:
           name: You-exe
           path: windows/You-Windows.zip
-      - name: Publish You.exe as a release
-        shell: pwsh
+      - name: Publish You.exe as a release (version, build number and what changed)
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "windows-${{ github.run_number }}" You-Windows.zip dist\You.exe `
-            --title "You for Windows ${{ github.run_number }}" `
-            --notes "Download You-Windows.zip, unzip it, and open the You folder. It has You.exe, a shortcut maker and an uninstaller. You.exe alone is also here if you only want the program."
+          ver=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' app/info.py)
+          notes=$(bash ../.github/release-notes.sh '^windows-' .)
+          gh release create "windows-${{ github.run_number }}" You-Windows.zip dist/You.exe \
+            --title "You ${ver} for Windows (build ${{ github.run_number }})" \
+            --notes "${notes}"$'\n\nDownload You-Windows.zip, unzip it, and open the You folder. It has You.exe, a shortcut maker and an uninstaller. You.exe alone is also here if you only want the program.'

@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
       - name: Security guard (blocks the build if something dangerous was added)
         run: python3 .github/guard/guard.py
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3  # v4
@@ -69,10 +71,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          WHATSNEW=$(bash .github/release-notes.sh '^android-' . ':!windows')
           KEYLINE="Signed with the permanent key. It installs over the previous version and keeps your data."
           RAW=https://raw.githubusercontent.com/${{ github.repository }}/main/docs/screenshots
           cat > notes.md <<EOF
-          ## You for Android ${{ github.run_number }}
+          ## You 1.0.${{ github.run_number }} for Android
+
+          $WHATSNEW
 
           Your music, movies and TV shows on your phone. Offline and private: no internet permission, no ads, no tracking, nothing collected.
 
@@ -90,5 +95,5 @@ jobs:
           EOF
           sed -i 's/^          //' notes.md
           gh release create "android-${{ github.run_number }}" You.apk \
-            --title "You for Android ${{ github.run_number }}" \
+            --title "You 1.0.${{ github.run_number }} for Android" \
             --notes-file notes.md
