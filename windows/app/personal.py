@@ -558,14 +558,16 @@ def make_shortcut(picture, icon_color="black"):
     ico = data_dir() / "shortcut-icon.ico"
     if not looks.write_ico(source, ico):
         return "That picture could not be read."
+    def q(v):
+        return str(v).replace("'", "''")
     script = (
         "$s=New-Object -ComObject WScript.Shell;"
         "foreach($p in @((Join-Path ([Environment]::GetFolderPath('Desktop')) 'You.lnk'),"
         "(Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs\\You.lnk'))){"
         "$l=$s.CreateShortcut($p);"
-        f"$l.TargetPath='{sys.executable}';"
-        f"$l.WorkingDirectory='{Path(sys.executable).parent}';"
-        f"$l.IconLocation='{ico}';"
+        f"$l.TargetPath='{q(sys.executable)}';"
+        f"$l.WorkingDirectory='{q(Path(sys.executable).parent)}';"
+        f"$l.IconLocation='{q(ico)}';"
         "$l.Save()}"
     )
     try:

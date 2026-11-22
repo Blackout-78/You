@@ -63,6 +63,9 @@ jobs:
             "$APKANALYZER" manifest permissions You.apk | tee perms.txt
             if grep -qi "INTERNET" perms.txt; then echo "The app must not have the INTERNET permission"; exit 1; fi
           fi
+      - name: Remove the decoded signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: You-apk

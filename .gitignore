@@ -16,3 +16,11 @@ __pycache__/
 *.jks
 *.keystore
 windows/app/build_info.py
+*.p12
+*.pfx
+*.pem
+*.key
+.env
+KEYSTORE_*.txt
+github-secrets*.txt
+keystore.properties
