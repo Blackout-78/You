@@ -9,6 +9,8 @@
     <!-- No INTERNET permission on purpose: the app cannot connect to anything. -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Only to find poster pictures saved beside your videos (poster.jpg, season01-poster.jpg). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

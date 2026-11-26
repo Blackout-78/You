@@ -95,7 +95,7 @@ private fun LabeledSlider(label: String, value: Float, onChange: (Float) -> Unit
 }
 
 @Composable
-private fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
+private fun ToneChip(text: String, on: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.padding(end = 8.dp, bottom = 8.dp)
             .background(if (on) White else Panel)
@@ -145,7 +145,7 @@ fun AppearanceSection(vm: AppViewModel) {
 
     Row(Modifier.horizontalScroll(rememberScrollState())) {
         for ((key, label) in listOf("all" to "Whole app", "music" to "Music", "movies" to "Movies", "shows" to "TV Shows")) {
-            Chip(label, scope == key) { scope = key }
+            ToneChip(label, scope == key) { scope = key }
         }
     }
 
@@ -173,7 +173,7 @@ fun AppearanceSection(vm: AppViewModel) {
     Spacer(Modifier.height(6.dp))
     Row(Modifier.horizontalScroll(rememberScrollState())) {
         for ((name, preset) in presets) {
-            Chip(name, false) { vm.savePalette(scope, preset.copy(picture = palette.picture, dim = palette.dim)) }
+            ToneChip(name, false) { vm.savePalette(scope, preset.copy(picture = palette.picture, dim = palette.dim)) }
         }
     }
 
@@ -323,7 +323,7 @@ fun WelcomeScreen(vm: AppViewModel) {
         Text("Pick a look", color = Soft, fontSize = 14.sp)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.horizontalScroll(rememberScrollState())) {
-            for ((name, preset) in presets) Chip(name, false) { vm.savePalette("all", preset) }
+            for ((name, preset) in presets) ToneChip(name, false) { vm.savePalette("all", preset) }
         }
         Spacer(Modifier.height(18.dp))
         OutlinedButton(onClick = { vm.finishWelcome() }, border = BorderStroke(1.dp, White)) {

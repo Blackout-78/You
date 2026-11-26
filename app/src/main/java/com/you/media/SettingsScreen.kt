@@ -47,23 +47,23 @@ fun SettingsScreen(vm: AppViewModel) {
             Text("Layout", color = White, fontSize = 16.sp)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Browse has a big picture and rows. Grid is a plain grid of covers. Pick one for each section.",
+                "Browse has a big picture and rows. Grid is a plain grid of covers. Candy (Music only) has Albums, Artists, Songs and Playlists chips with sorting. Pick one for each section.",
                 color = Muted, fontSize = 14.sp,
             )
             Spacer(Modifier.height(10.dp))
             for ((key, label) in listOf("music" to "Music", "movies" to "Movies", "shows" to "TV Shows")) {
                 Row(Modifier.padding(vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Text(label, color = Soft, fontSize = 15.sp, modifier = Modifier.width(96.dp))
-                    for (theme in listOf("Browse", "Grid")) {
+                    for (theme in if (key == "music") listOf("Candy", "Browse", "Grid") else listOf("Browse", "Grid")) {
                         val on = vm.themes[key] == theme
                         androidx.compose.foundation.layout.Box(
                             Modifier.padding(end = 8.dp)
-                                .background(if (on) White else Panel)
+                                .background(if (on) Accent else Panel)
                                 .clickable { vm.setTheme(key, theme) }
                                 .padding(horizontal = 18.dp, vertical = 9.dp)
                         ) {
                             Text(
-                                theme, color = if (on) YouColors.solidDark else Soft, fontSize = 14.sp,
+                                theme, color = if (on) White else Soft, fontSize = 14.sp,
                                 fontWeight = if (on) androidx.compose.ui.text.font.FontWeight.Bold else null,
                             )
                         }
@@ -72,19 +72,30 @@ fun SettingsScreen(vm: AppViewModel) {
             }
 
             Spacer(Modifier.height(32.dp))
-            Text("Library", color = White, fontSize = 16.sp)
+            Text("Library folders", color = White, fontSize = 16.sp)
             Spacer(Modifier.height(4.dp))
-            Text("The app looks for new files every time you open it.", color = Muted, fontSize = 14.sp)
+            Text(
+                "Pick where each kind lives. Add as many folders as you like. With no folder " +
+                    "for a kind, the app reads the whole phone. It looks for new files every time you open it.",
+                color = Muted, fontSize = 14.sp,
+            )
+            for ((kind, label) in listOf(
+                LibraryFolders.MUSIC to "Music", LibraryFolders.MOVIES to "Movies", LibraryFolders.TV to "TV Shows",
+            )) {
+                FolderSection(vm, kind, label)
+            }
             Spacer(Modifier.height(10.dp))
             OutlinedButton(onClick = { vm.refresh() }, border = BorderStroke(1.dp, Line)) {
                 Text(if (vm.loading) "Reading\u2026" else "Refresh library", color = White)
             }
             Spacer(Modifier.height(32.dp))
-            Text("Lyrics and subtitles folder", color = White, fontSize = 16.sp)
+            Text("Lyrics, subtitles and details folder", color = White, fontSize = 16.sp)
             Spacer(Modifier.height(4.dp))
             Text(
-                if (vm.lyricsFolderSet) "A folder is chosen. ${vm.lyricsIndex.fileCount} lyric files found."
-                else "No folder chosen. Pick the folder that holds your music and .lrc files.",
+                if (vm.lyricsFolderSet) "A folder is chosen. ${vm.lyricsIndex.fileCount} lyric files and " +
+                    "${vm.lyricsIndex.nfoCount} .nfo files found."
+                else "No folder chosen. Pick the folder that holds your music, movies and TV. " +
+                    "The app reads .lrc lyrics, subtitles, .nfo titles and plots, and artist pictures and descriptions from it.",
                 color = Muted, fontSize = 14.sp,
             )
             Spacer(Modifier.height(10.dp))
@@ -130,6 +141,33 @@ fun SettingsScreen(vm: AppViewModel) {
             )
 
             Spacer(Modifier.height(32.dp))
+            Text("Updates", color = White, fontSize = 16.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Opens the You releases page on GitHub in your browser. Download the newest APK there and " +
+                    "install it over this one. The app itself never connects to anything.",
+                color = Muted, fontSize = 14.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
+            OutlinedButton(
+                onClick = {
+                    try {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/Blackout-78/You/releases"),
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: android.content.ActivityNotFoundException) {
+                    }
+                },
+                border = BorderStroke(1.dp, Line),
+            ) {
+                Text("Open GitHub Releases", color = White)
+            }
+
+            Spacer(Modifier.height(32.dp))
             Text("About", color = White, fontSize = 16.sp)
             Spacer(Modifier.height(4.dp))
             Text(Version.full, color = Muted, fontSize = 14.sp)
@@ -146,5 +184,29 @@ fun SettingsScreen(vm: AppViewModel) {
             },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** One Library folders block: its folders with Remove, and an Add folder button. */
+@Composable
+private fun FolderSection(vm: AppViewModel, kind: String, label: String) {
+    val add = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        vm.addLibraryFolder(kind, uri)
+    }
+    val folders = vm.libraryFolders[kind].orEmpty()
+    Spacer(Modifier.height(16.dp))
+    Text(label, color = Soft, fontSize = 15.sp)
+    if (folders.isEmpty()) {
+        Text("Whole phone", color = Muted, fontSize = 13.sp)
+    }
+    for (path in folders) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(path.ifEmpty { "(whole storage)" }, color = Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            TextButton(onClick = { vm.removeLibraryFolder(kind, path) }) { Text("Remove") }
+        }
+    }
+    Spacer(Modifier.height(4.dp))
+    OutlinedButton(onClick = { add.launch(null) }, border = BorderStroke(1.dp, Line)) {
+        Text("Add $label folder\u2026", color = White)
     }
 }
