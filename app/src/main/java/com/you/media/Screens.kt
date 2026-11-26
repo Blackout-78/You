@@ -93,10 +93,18 @@ fun GridCell(
             }
             .padding(14.dp),
     ) {
-        Cover(path, albumId, title, Modifier.fillMaxWidth().aspectRatio(aspect), videoUri)
-        Spacer(Modifier.height(8.dp))
-        Text(title, color = White, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (subtitle != null) Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1)
+        if (aspect < 1f) {
+            // movie and show posters: the caption sits on the bottom of the picture
+            Box(Modifier.fillMaxWidth().aspectRatio(aspect)) {
+                Cover(path, albumId, title, Modifier.fillMaxSize(), videoUri)
+                CaptionBar(title, subtitle, Modifier.align(Alignment.BottomStart))
+            }
+        } else {
+            Cover(path, albumId, title, Modifier.fillMaxWidth().aspectRatio(aspect), videoUri)
+            Spacer(Modifier.height(8.dp))
+            Text(title, color = White, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1)
+        }
     }
 }
 
@@ -108,7 +116,7 @@ fun LinkText(text: String, onClick: () -> Unit) {
 /** The description under a cover, with a button to write or change it. */
 @Composable
 fun Description(vm: AppViewModel, key: String) {
-    val text = vm.store.notes[key].orEmpty()
+    val text = vm.describe(key)
     var editing by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         if (text.isEmpty()) Text("No description yet.", color = Muted, fontSize = 14.sp)
@@ -126,7 +134,7 @@ fun Description(vm: AppViewModel, key: String) {
                     value = draft, onValueChange = { draft = it }, minLines = 5,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = White, unfocusedTextColor = White,
-                        focusedBorderColor = White, unfocusedBorderColor = Line, cursorColor = White,
+                        focusedBorderColor = AccentHi, unfocusedBorderColor = Line, cursorColor = White,
                     ),
                 )
             },
@@ -142,7 +150,7 @@ fun Description(vm: AppViewModel, key: String) {
 @Composable
 fun CoverSection(
     vm: AppViewModel, key: String, albumId: Long?, label: String,
-    videoUri: Uri? = null, aspect: Float = 1f, widthFraction: Float = 1f,
+    videoUri: Uri? = null, aspect: Float = 1f, widthFraction: Float = 1f, showPicture: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -152,8 +160,8 @@ fun CoverSection(
         }
     }
     val custom = vm.store.covers[key]
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    Column(Modifier.fillMaxWidth().padding(if (showPicture) 16.dp else 4.dp)) {
+        if (showPicture) Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Cover(custom, albumId, label, Modifier.fillMaxWidth(widthFraction).aspectRatio(aspect), videoUri)
         }
         Row {
@@ -198,14 +206,23 @@ fun Message(text: String) {
 
 @Composable
 fun ArtistsScreen(vm: AppViewModel) {
+    Box(Modifier.fillMaxSize()) {
+        ArtistsContent(vm)
+        MusicShuffleFab(vm)
+    }
+}
+
+@Composable
+private fun ArtistsContent(vm: AppViewModel) {
+    if (vm.themes["music"] == "Candy") { MusicCandyScreen(vm); return }
+    if (!vm.isGrid("music")) { MusicHomeScreen(vm); return }
     Column(Modifier.fillMaxSize()) {
         TopBar(vm.profileName.ifBlank { "You" }, null) {
-            Avatar(vm.profilePicture, 32.dp, Modifier.clickable { vm.selectTab(Tab.Settings) })
-            Spacer(Modifier.width(6.dp))
-            LinkText("Search") { vm.open(Screen.Search) }
             LinkText("Playlists") { vm.open(Screen.Playlists) }
             LinkText("\u2665") { vm.open(Screen.Favorites) }
+            Avatar(vm.profilePicture, 32.dp, Modifier.clickable { vm.selectTab(Tab.Settings) })
         }
+        GraySearchBar(vm)
         val artists = vm.library.artists
         if (artists.isEmpty()) {
             Message(
@@ -213,31 +230,11 @@ fun ArtistsScreen(vm: AppViewModel) {
                 else "No music found.\nCopy music onto your phone, then open Settings and press Refresh library."
             )
         } else {
-            val mostPlayed = remember(vm.library, vm.store.playCounts.toMap()) {
-                artists.flatMap { ar -> ar.albums.map { al -> Triple(ar.name, al, al.tracks.sumOf { vm.store.playCounts[it.id] ?: 0 }) } }
-                    .filter { it.third > 0 }.sortedByDescending { it.third }.take(14)
-            }
             LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize()) {
-                if (mostPlayed.isNotEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
-                    Column {
-                        SectionHeader("Most played")
-                        TileRow {
-                            mostPlayed.forEach { (artistName, album, _) ->
-                                Column(Modifier.width(140.dp).padding(end = 14.dp).clickable { vm.open(Screen.AlbumPage(artistName, album.title)) }) {
-                                    Cover(vm.store.covers[album.key], album.albumId, album.title, Modifier.fillMaxWidth().aspectRatio(1f))
-                                    Spacer(Modifier.height(6.dp))
-                                    Text(album.title, color = White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    Text(artistName, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
-                        }
-                        SectionHeader("Artists")
-                    }
-                }
                 items(artists, key = { it.name }) { artist ->
                     val n = artist.albums.size
                     GridCell(
-                        path = vm.store.covers[artist.key],
+                        path = vm.artistCover(artist),
                         albumId = artist.albums.firstOrNull()?.albumId,
                         title = artist.name,
                         subtitle = "$n album${if (n == 1) "" else "s"}",
@@ -278,14 +275,17 @@ fun ArtistBrowseScreen(vm: AppViewModel, name: String) {
                 Hero(
                     title = artist.name,
                     meta = "${artist.albums.size} album${if (artist.albums.size == 1) "" else "s"} \u00b7 ${allSongs.size} songs",
-                    description = vm.store.notes[artist.key].orEmpty(),
+                    description = vm.describe(artist.key),
                     videoUri = null,
-                    coverPath = customCover,
+                    coverPath = vm.artistCover(artist),
                     albumId = artist.albums.firstOrNull()?.albumId,
-                    playLabel = "Shuffle",
-                    infoLabel = "Play",
-                    onPlay = { vm.player.playQueue(allSongs.shuffled(), 0) },
-                    onInfo = { vm.player.playQueue(artist.albums.flatMap { it.tracks }, 0) },
+                    kicker = "ARTIST",
+                    tall = true,
+                    playLabel = "Play",
+                    infoLabel = "Shuffle",
+                    infoMark = "\u21C4",
+                    onPlay = { vm.player.playQueue(artist.albums.flatMap { it.tracks }, 0) },
+                    onInfo = { vm.player.playQueue(allSongs.shuffled(), 0) },
                 )
             }
             item {
@@ -297,7 +297,7 @@ fun ArtistBrowseScreen(vm: AppViewModel, name: String) {
                 }
                 Description(vm, artist.key)
             }
-            item { SectionHeader("Songs") }
+            item { SectionHeader("Most played") }
             itemsIndexed(shown, key = { _, t -> "t${t.id}" }) { index, track ->
                 val current = vm.player.mediaId == track.id.toString()
                 Column(
@@ -323,6 +323,26 @@ fun ArtistBrowseScreen(vm: AppViewModel, name: String) {
             }
             if (allSongs.size > 5) {
                 item { LinkText(if (showAll) "Show fewer" else "Show all ${allSongs.size}") { showAll = !showAll } }
+            }
+            artist.albums.maxByOrNull { a -> a.tracks.maxOf { it.id } }?.let { latest ->
+                item {
+                    SectionHeader("Latest release")
+                    Row(
+                        Modifier.fillMaxWidth().clickable { vm.open(Screen.AlbumPage(artist.name, latest.title)) }
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Cover(vm.store.covers[latest.key], latest.albumId, latest.title, Modifier.size(96.dp))
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            val n = latest.tracks.size
+                            Text(if (n > 4) "Album" else if (n == 1) "Single" else "EP", color = Muted, fontSize = 12.sp)
+                            Text(latest.title, color = White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2,
+                                overflow = TextOverflow.Ellipsis)
+                            Text("$n song${if (n == 1) "" else "s"}", color = Muted, fontSize = 12.sp)
+                        }
+                    }
+                }
             }
             if (albums.isNotEmpty()) {
                 item { SectionHeader("Albums") }
@@ -403,37 +423,44 @@ fun AlbumScreen(vm: AppViewModel, artistName: String, albumTitle: String) {
             Message("Album not found.")
             return@Column
         }
+        val total = album.tracks.sumOf { it.durationMs }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
-                Column {
-                    CoverSection(vm, album.key, album.albumId, album.title)
-                    Description(vm, album.key)
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { vm.player.playQueue(album.tracks, 0) },
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Line),
-                        ) { Text("Play album", color = White) }
-                        Spacer(Modifier.width(14.dp))
-                        Text(
-                            "${album.tracks.size} tracks · ${formatTime(album.tracks.sumOf { it.durationMs })}",
-                            color = Muted, fontSize = 13.sp,
-                        )
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(16.dp))
+                    Cover(vm.store.covers[album.key], album.albumId, album.title, Modifier.fillMaxWidth(0.72f).aspectRatio(1f))
+                    Spacer(Modifier.height(18.dp))
+                    Column(Modifier.fillMaxWidth()) {
+                        Text("ALBUM", color = Soft, fontSize = 11.sp, letterSpacing = 3.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(album.title, color = White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 30.sp)
+                        Text(album.artist, color = Soft, fontSize = 15.sp,
+                            modifier = Modifier.padding(vertical = 4.dp).clickable { vm.open(Screen.ArtistPage(artistName)) })
+                        Text("${album.tracks.size} song${if (album.tracks.size == 1) "" else "s"}  \u00b7  ${lengthLabel(total)}",
+                            color = Muted, fontSize = 13.sp)
+                        Spacer(Modifier.height(14.dp))
+                        StreamButtons("\u25B6   Play", { vm.player.playQueue(album.tracks, 0) },
+                            "\u21C4   Shuffle") { vm.player.playQueue(album.tracks.shuffled(), 0) }
                     }
-                    HorizontalDivider(color = Line)
                 }
             }
+            item { CoverSection(vm, album.key, album.albumId, album.title, showPicture = false) }
+            item { Description(vm, album.key) }
+            item { AlbumLyricsCard(vm, album) }
+            item { SectionHeader("Songs") }
             itemsIndexed(album.tracks, key = { _, t -> t.id }) { index, track ->
                 val current = vm.player.mediaId == track.id.toString()
                 val label = when {
-                    current && vm.player.isPlaying -> "▶"
-                    current -> "‖"
+                    current && vm.player.isPlaying -> "\u25b6"
+                    current -> "\u2016"
                     track.number > 0 -> "%02d".format(track.number)
-                    else -> "–"
+                    else -> "\u2013"
                 }
                 TrackRow(label, track.title, null, formatTime(track.durationMs), current, onLongClick = { addTo = track.id }) {
                     vm.player.playQueue(album.tracks, index)
                 }
             }
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
@@ -519,7 +546,7 @@ fun LyricsScreen(vm: AppViewModel) {
                 Spacer(Modifier.height(10.dp))
                 Text(
                     if (vm.lyricsFolderSet)
-                        "The app looks for a .lrc or .txt file with the same name as the song, or lyrics inside the song file."
+                        "You looks for a .lrc or .txt file with the same name as the song, or lyrics inside the song file."
                     else
                         "To use .lrc and .txt files, choose the folder that holds your music. Lyrics stored inside song files work without this.",
                     color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center,

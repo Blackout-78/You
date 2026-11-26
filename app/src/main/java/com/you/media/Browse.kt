@@ -52,34 +52,35 @@ fun Hero(
     title: String, meta: String, description: String, videoUri: Uri?, coverPath: String?,
     onPlay: () -> Unit, onInfo: () -> Unit,
     albumId: Long? = null, playLabel: String = "Play", infoLabel: String = "More info",
+    kicker: String = "", infoMark: String = "\u24D8", tall: Boolean = false,
 ) {
-    Box(Modifier.fillMaxWidth().height(340.dp).background(Panel)) {
+    Box(Modifier.fillMaxWidth().height(if (albumId == null || tall) 480.dp else 340.dp).background(Panel)) {
         Cover(coverPath, albumId, title, Modifier.fillMaxSize(), videoUri, large = true)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xD9000000), 0.6f to Color(0x55000000), 1f to Color(0x00000000))))
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0.0f to YouColors.solidDark.copy(alpha = 0.4f), 0.45f to YouColors.solidDark.copy(alpha = 0f), 1.0f to Black,
+                    0.0f to Color(0x80000000), 0.2f to Color(0x00000000), 0.55f to Color(0x00000000), 1.0f to Black,
                 )
             )
         )
-        Column(Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-            Text(title, color = White, fontSize = 30.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(4.dp))
+        Column(Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 16.dp, bottom = 18.dp)) {
+            if (kicker.isNotBlank()) {
+                Text(kicker, color = Soft, fontSize = 11.sp, letterSpacing = 3.sp)
+                Spacer(Modifier.height(6.dp))
+            }
+            Text(if (kicker.isNotBlank() && albumId == null) plainTitle(title) else title, color = White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 36.sp,
+                maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
             Text(meta, color = Soft, fontSize = 14.sp)
             if (description.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(description, color = Soft, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
-            Spacer(Modifier.height(14.dp))
-            Row {
-                Box(
-                    Modifier.background(White).clickable(onClick = onPlay).padding(horizontal = 26.dp, vertical = 11.dp),
-                ) { Text(playLabel, color = YouColors.solidDark, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
-                Spacer(Modifier.width(10.dp))
-                Box(
-                    Modifier.background(YouColors.solidDark.copy(alpha = 0.8f)).clickable(onClick = onInfo).padding(horizontal = 22.dp, vertical = 11.dp),
-                ) { Text(infoLabel, color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
-            }
+            Spacer(Modifier.height(16.dp))
+            val video = kicker.isNotBlank()      // Movies and TV Shows get the play and info marks
+            StreamButtons(if (video) "\u25B6   $playLabel" else playLabel, onPlay,
+                if (video) "$infoMark   $infoLabel" else infoLabel, onInfo)
         }
     }
 }
@@ -96,10 +97,10 @@ fun SortChips(selected: SortMode, onSelect: (SortMode) -> Unit) {
             val on = mode == selected
             Box(
                 Modifier.padding(end = 8.dp)
-                    .background(if (on) White else Panel)
+                    .background(if (on) Accent else Panel)
                     .clickable { onSelect(mode) }
                     .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) { Text(mode.label, color = if (on) YouColors.solidDark else Soft, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else null) }
+            ) { Text(mode.label, color = if (on) White else Soft, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else null) }
         }
     }
 }
@@ -111,13 +112,17 @@ fun SectionHeader(text: String) {
 
 /** A wide picture with the name written over the bottom of it. */
 @Composable
-fun LandscapeTile(title: String, subtitle: String, videoUri: Uri?, coverPath: String?, onClick: () -> Unit) {
+fun LandscapeTile(
+    title: String, subtitle: String, videoUri: Uri?, coverPath: String?,
+    progress: Float = 0f, onClick: () -> Unit,
+) {
     Box(Modifier.width(240.dp).aspectRatio(16f / 9f).background(Panel).clickable(onClick = onClick)) {
         Cover(coverPath, null, title, Modifier.fillMaxSize(), videoUri)
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to YouColors.solidDark.copy(alpha = 0f), 1.0f to YouColors.solidDark.copy(alpha = 0.9f))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color(0x00000000), 1.0f to Color(0xE6000000))))
         Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
             Text(title, color = White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(subtitle, color = Soft, fontSize = 12.sp)
+            if (progress > 0f) { Spacer(Modifier.height(6.dp)); ProgressLine(progress) }
         }
     }
 }
@@ -175,7 +180,7 @@ fun CollectionScreen(vm: AppViewModel, folder: String) {
                 val m = collection.movies[i]
                 GridCell(
                     path = vm.store.covers[m.key], albumId = null, title = m.title,
-                    subtitle = lengthLabel(m.video.durationMs), aspect = 2f / 3f, videoUri = m.video.uri,
+                    subtitle = lengthLabel(m.video.durationMs), aspect = 2f / 3f, videoUri = m.video.art,
                 ) { vm.open(Screen.MoviePage(m.video.id)) }
             }
         }
