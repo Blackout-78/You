@@ -33,6 +33,22 @@ These are design previews of the real screens. Photos from a phone will replace 
   </tr>
 </table>
 
+## New look
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/10-new-look-music-home.png" width="180" alt="Music home"></td>
+    <td><img src="docs/screenshots/11-new-look-albums.png" width="180" alt="Albums"></td>
+    <td><img src="docs/screenshots/12-new-look-album-page.png" width="180" alt="Album page"></td>
+    <td><img src="docs/screenshots/13-new-look-classic.png" width="180" alt="Classic colors"></td>
+  </tr>
+  <tr>
+    <td align="center">Music home</td><td align="center">Albums</td><td align="center">Album page</td><td align="center">Classic colors</td>
+  </tr>
+</table>
+
+Chips, the bottom-bar pill, buttons and progress bars all use the colors you pick.
+
 ## Features
 
 | Tab | What it does |

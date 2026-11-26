@@ -78,7 +78,7 @@ jobs:
           KEYLINE="Signed with the permanent key. It installs over the previous version and keeps your data."
           RAW=https://raw.githubusercontent.com/${{ github.repository }}/main/docs/screenshots
           cat > notes.md <<EOF
-          ## You 1.0.${{ github.run_number }} for Android
+          ## You 1.1.${{ github.run_number }} for Android
 
           $WHATSNEW
 
@@ -90,13 +90,15 @@ jobs:
           - **Movies and TV Shows:** found automatically by file name, with posters, resume, subtitles and favorites.
           - **Music:** artists, albums, songs, playlists, favorites, lyrics and cover art.
           - **Make it yours:** your own picture and name, any color for the light, middle and dark tones, a background picture, and a home-screen icon color.
-          - **Browse or Grid:** choose the layout for each tab.
+          - **Browse, Grid or Candy:** choose the layout for each tab (Candy is Music only).
 
-          <img src="$RAW/01-movies.png" width="150"> <img src="$RAW/03-artist.png" width="150"> <img src="$RAW/05-colors.png" width="150"> <img src="$RAW/08-picture-background.png" width="150">
+          **New look in 1.1:** Music now has Albums, Artists, Songs and Playlists chips, a slim player bar with the cover, a selected-tab pill in the bottom bar, a Netflix-style Movies and TV Shows home, and a Library folders setting. Every color still follows the colors you pick.
 
-          *Design previews. All screens and install steps are on the [front page](https://github.com/${{ github.repository }}#readme).*
+          <img src="$RAW/10-new-look-music-home.png" width="150"> <img src="$RAW/11-new-look-albums.png" width="150"> <img src="$RAW/12-new-look-album-page.png" width="150"> <img src="$RAW/13-new-look-classic.png" width="150">
+
+          *Updated mockups of the new look (Ocean colors, and Classic on the right). All screens and install steps are on the [front page](https://github.com/${{ github.repository }}#readme).*
           EOF
           sed -i 's/^          //' notes.md
           gh release create "android-${{ github.run_number }}" You.apk \
-            --title "You 1.0.${{ github.run_number }} for Android" \
+            --title "You 1.1.${{ github.run_number }} for Android" \
             --notes-file notes.md
