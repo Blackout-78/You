@@ -31,24 +31,23 @@ import androidx.compose.ui.unit.sp
 @Composable
 private fun nameFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = White, unfocusedTextColor = White,
-    focusedBorderColor = White, unfocusedBorderColor = Line, cursorColor = White,
+    focusedBorderColor = AccentHi, unfocusedBorderColor = Line, cursorColor = White,
 )
 
 /** Pops up when you press and hold a song: pick a playlist, or make a new one. */
 @Composable
 fun AddToPlaylistDialog(vm: AppViewModel, trackId: Long, onDismiss: () -> Unit) {
-    val song = vm.library.tracksById[trackId]
     var newName by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (song != null) "This song" else "Add to playlist") },
+        title = { Text("This song") },
         text = {
             Column {
-                if (song != null) {
+                vm.library.tracksById[trackId]?.let { song ->
                     TextButton(onClick = { vm.player.playNext(song); onDismiss() }) { Text("Play next") }
                     TextButton(onClick = { vm.player.addToQueue(song); onDismiss() }) { Text("Add to queue") }
-                    Text("Add to playlist", color = Muted, modifier = Modifier.padding(top = 6.dp))
                 }
+                Text("Add to playlist", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
                 vm.store.playlists.keys.sortedBy { it.lowercase() }.forEach { name ->
                     TextButton(onClick = { vm.store.addToPlaylist(name, trackId); onDismiss() }) { Text(name) }
                 }

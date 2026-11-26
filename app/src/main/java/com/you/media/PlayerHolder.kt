@@ -29,6 +29,7 @@ class PlayerHolder(private val context: Context) {
     var durationMs by mutableStateOf(0L)
     var shuffle by mutableStateOf(false)
     var repeat by mutableStateOf(Player.REPEAT_MODE_OFF)
+    var speed by mutableStateOf(1f)
     var queueIndex by mutableStateOf(0)
     /** Goes up whenever the list of songs changes, so the queue on screen refreshes. */
     var queueVersion by mutableStateOf(0)
@@ -73,6 +74,7 @@ class PlayerHolder(private val context: Context) {
         durationMs = if (p.duration == C.TIME_UNSET) 0L else p.duration.coerceAtLeast(0L)
         shuffle = p.shuffleModeEnabled
         repeat = p.repeatMode
+        speed = p.playbackParameters.speed
         queueIndex = p.currentMediaItemIndex
     }
 
@@ -93,39 +95,6 @@ class PlayerHolder(private val context: Context) {
             .build()
 
     val isVideo: Boolean get() = mediaId?.startsWith("v") == true
-
-    /** Puts a song right after the one playing. */
-    fun playNext(track: Track) {
-        val c = controller ?: return
-        if (c.mediaItemCount == 0) { playQueue(listOf(track), 0); return }
-        c.addMediaItem(c.currentMediaItemIndex + 1, track.toMediaItem())
-    }
-
-    /** Puts a song at the end of the queue. */
-    fun addToQueue(track: Track) {
-        val c = controller ?: return
-        if (c.mediaItemCount == 0) { playQueue(listOf(track), 0); return }
-        c.addMediaItem(track.toMediaItem())
-    }
-
-    fun queue(): List<QueueEntry> {
-        val c = controller ?: return emptyList()
-        return (0 until c.mediaItemCount).map { i ->
-            val item = c.getMediaItemAt(i)
-            QueueEntry(i, item.mediaId, item.mediaMetadata.title?.toString() ?: "", item.mediaMetadata.artist?.toString() ?: "")
-        }
-    }
-
-    fun jumpTo(index: Int) {
-        val c = controller ?: return
-        c.seekTo(index, 0L)
-        c.play()
-    }
-
-    fun removeFromQueue(index: Int) {
-        val c = controller ?: return
-        if (index != c.currentMediaItemIndex && index in 0 until c.mediaItemCount) c.removeMediaItem(index)
-    }
 
     fun playQueue(tracks: List<Track>, index: Int) {
         playItems(tracks.map { it.toMediaItem() }, index, 0L)
@@ -228,6 +197,59 @@ class PlayerHolder(private val context: Context) {
             }
         }
     }
+
+    /** Playback speed: 1x, 1.25x, 1.5x, 2x, 0.75x, then round again. */
+    fun cycleSpeed() {
+        val c = controller ?: return
+        val steps = listOf(1f, 1.25f, 1.5f, 2f, 0.75f)
+        val next = steps[(steps.indexOfFirst { kotlin.math.abs(it - speed) < 0.01f } + 1).mod(steps.size)]
+        c.setPlaybackSpeed(next)
+        speed = next
+    }
+
+    /** What is lined up: position, media id, title and artist of every item. */
+    fun queue(): List<QueueEntry> {
+        val c = controller ?: return emptyList()
+        return (0 until c.mediaItemCount).map { i ->
+            val item = c.getMediaItemAt(i)
+            QueueEntry(i, item.mediaId, item.mediaMetadata.title?.toString() ?: "", item.mediaMetadata.artist?.toString() ?: "")
+        }
+    }
+
+    /** Puts a song right after the one playing. */
+    fun playNext(track: Track) {
+        val c = controller ?: return
+        if (c.mediaItemCount == 0) {
+            playQueue(listOf(track), 0)
+            return
+        }
+        c.addMediaItem(c.currentMediaItemIndex + 1, track.toMediaItem())
+    }
+
+    /** Puts a song at the end of the queue. */
+    fun addToQueue(track: Track) {
+        val c = controller ?: return
+        if (c.mediaItemCount == 0) {
+            playQueue(listOf(track), 0)
+            return
+        }
+        c.addMediaItem(track.toMediaItem())
+    }
+
+    /** Takes a song out of the queue (not the one playing). */
+    fun removeFromQueue(index: Int) {
+        val c = controller ?: return
+        if (index != c.currentMediaItemIndex && index in 0 until c.mediaItemCount) c.removeMediaItem(index)
+    }
+
+    fun jumpTo(index: Int) {
+        val c = controller ?: return
+        c.seekTo(index, 0L)
+        c.play()
+    }
 }
 
 data class QueueEntry(val index: Int, val mediaId: String, val title: String, val artist: String)
+
+fun speedLabel(speed: Float): String =
+    (if (speed % 1f == 0f) speed.toInt().toString() else speed.toString()) + "\u00d7"

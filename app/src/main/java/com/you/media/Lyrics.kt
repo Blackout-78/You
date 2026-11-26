@@ -160,7 +160,7 @@ private fun readId3Lyrics(input: DataInputStream): String? {
             else -> int32(fh, 4)
         }
         if (size < 0 || size > remaining) break
-        if (id == "USLT" || id == "ULT") {
+        if ((id == "USLT" || id == "ULT") && size <= 2_000_000) {      // a damaged tag must not ask for hundreds of MB
             val body = ByteArray(size)
             input.readFully(body)
             parseUslt(body)?.let { return it }
@@ -239,6 +239,8 @@ fun readEmbeddedLyrics(context: Context, uri: Uri): String? = try {
     }
 } catch (_: Exception) {
     null
+} catch (_: OutOfMemoryError) {
+    null
 }
 
 // ---- lyrics files next to the songs (.lrc / .txt) ---------------------------------------
@@ -247,13 +249,16 @@ fun readEmbeddedLyrics(context: Context, uri: Uri): String? = try {
  * Android only lets an app see non-music files in a folder you pick. You pick your music folder
  * once; we list the .lrc and .txt files in it and remember where they are.
  */
-class LyricsIndex(private val context: Context) {
+class LyricsIndex(private val context: Context) : NfoReader {
     private val file = File(context.filesDir, "lyrics_index.json")
     var treeUri: String? = null
         private set
     private var lrc: Map<String, String> = emptyMap()
     private var txt: Map<String, String> = emptyMap()
     private var srt: Map<String, String> = emptyMap()
+    private var nfo: Map<String, String> = emptyMap()
+    private var img: Map<String, String> = emptyMap()
+    private val nfoCache = java.util.concurrent.ConcurrentHashMap<String, Any>()
     /** True when the saved list was made before subtitles were supported. */
     var needsRescan = false
         private set
@@ -266,7 +271,9 @@ class LyricsIndex(private val context: Context) {
                 lrc = readMap(root.optJSONObject("lrc"))
                 txt = readMap(root.optJSONObject("txt"))
                 srt = readMap(root.optJSONObject("srt"))
-                needsRescan = treeUri != null && !root.has("srt")
+                nfo = readMap(root.optJSONObject("nfo"))
+                img = readMap(root.optJSONObject("img"))
+                needsRescan = treeUri != null && !root.has("img")
             }
         } catch (_: Exception) {
         }
@@ -290,17 +297,44 @@ class LyricsIndex(private val context: Context) {
         lrc = emptyMap()
         txt = emptyMap()
         srt = emptyMap()
+        nfo = emptyMap()
+        img = emptyMap()
+        nfoCache.clear()
         needsRescan = false
         runCatching { file.delete() }
     }
 
     val fileCount: Int get() = lrc.size + txt.size
+    val nfoCount: Int get() = nfo.size
+
+    private fun docKey(volume: String, folder: String, base: String): String {
+        val vol = if (volume == "external_primary") "primary" else volume
+        val dir = folder.trim('/')
+        return (if (dir.isEmpty()) "$vol:$base" else "$vol:$dir/$base").lowercase()
+    }
+
+    override fun image(volume: String, folder: String, vararg bases: String): Uri? {
+        for (base in bases) img[docKey(volume, folder, base)]?.let { return Uri.parse(it) }
+        return null
+    }
+
+    override fun read(volume: String, folder: String, base: String): NfoInfo? {
+        val key = docKey(volume, folder, base)
+        val uri = nfo[key] ?: return null
+        val cached = nfoCache[key]
+        if (cached != null) return cached as? NfoInfo
+        val info = readText(uri)?.let { parseNfo(it) }
+        nfoCache[key] = info ?: Unit
+        return info
+    }
 
     /** Lists every .lrc and .txt under the chosen folder. Slow on big libraries, so run it off the main thread. */
     fun rebuild(tree: Uri) {
         val newLrc = HashMap<String, String>()
         val newTxt = HashMap<String, String>()
         val newSrt = HashMap<String, String>()
+        val newNfo = HashMap<String, String>()
+        val newImg = HashMap<String, String>()
         val resolver = context.contentResolver
         val pending = ArrayDeque<String>()
         pending.add(DocumentsContract.getTreeDocumentId(tree))
@@ -324,10 +358,16 @@ class LyricsIndex(private val context: Context) {
             }
             for ((id, name, mime) in found) {
                 if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                    pending.add(id)
+                    if (!name.startsWith(".")) pending.add(id)     // skip .actors and other hidden folders
                 } else {
                     val ext = name.substringAfterLast('.', "").lowercase()
-                    if (ext == "srt" || ext == "vtt") {
+                    if (ext == "jpg" || ext == "jpeg" || ext == "png" || ext == "webp") {
+                        newImg.putIfAbsent(id.substringBeforeLast('.').lowercase(),
+                            DocumentsContract.buildDocumentUriUsingTree(tree, id).toString())
+                    } else if (ext == "nfo") {
+                        newNfo[id.substringBeforeLast('.').lowercase()] =
+                            DocumentsContract.buildDocumentUriUsingTree(tree, id).toString()
+                    } else if (ext == "srt" || ext == "vtt") {
                         val key = id.substringBeforeLast('.').lowercase()
                         newSrt[key] = DocumentsContract.buildDocumentUriUsingTree(tree, id).toString()
                     } else if (ext == "lrc" || ext == "txt") {
@@ -342,6 +382,9 @@ class LyricsIndex(private val context: Context) {
         lrc = newLrc
         txt = newTxt
         srt = newSrt
+        nfo = newNfo
+        img = newImg
+        nfoCache.clear()
         needsRescan = false
         try {
             val root = JSONObject()
@@ -349,7 +392,9 @@ class LyricsIndex(private val context: Context) {
             root.put("lrc", JSONObject(lrc))
             root.put("txt", JSONObject(txt))
             root.put("srt", JSONObject(srt))
-            file.writeText(root.toString())
+            root.put("nfo", JSONObject(nfo))
+            root.put("img", JSONObject(img))
+            writeAtomic(file, root.toString())
         } catch (_: Exception) {
         }
     }

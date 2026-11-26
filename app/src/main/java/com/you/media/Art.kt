@@ -26,7 +26,30 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val cache = LruCache<String, ImageBitmap>(80)
+// Covers kept in memory, limited by size (an eighth of the app's memory) rather than by count.
+private val cache = object : LruCache<String, ImageBitmap>((Runtime.getRuntime().maxMemory() / 8).toInt().coerceAtLeast(16 shl 20)) {
+    override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4
+}
+
+/** Opens a picture file at no more than the size needed, instead of at full size. */
+private fun decodeScaled(path: String, side: Int): android.graphics.Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= side && bounds.outHeight / (sample * 2) >= side) sample *= 2
+    return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+}
+
+/** Opens a picture from the folder chosen in Settings, shrunk to the size needed. */
+private fun decodeDocument(context: Context, uri: Uri, side: Int): android.graphics.Bitmap =
+    android.graphics.ImageDecoder.decodeBitmap(
+        android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+    ) { decoder, info, _ ->
+        val w = info.size.width; val h = info.size.height
+        val scale = minOf(1f, side.toFloat() / maxOf(1, minOf(w, h)))
+        decoder.setTargetSize(maxOf(1, (w * scale).toInt()), maxOf(1, (h * scale).toInt()))
+        decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+    }
 
 private fun loadArt(context: Context, path: String?, albumId: Long?, videoUri: Uri?, large: Boolean): ImageBitmap? {
     val side = if (large) 1080 else 512
@@ -38,16 +61,22 @@ private fun loadArt(context: Context, path: String?, albumId: Long?, videoUri: U
     cache.get(key)?.let { return it }
     val bitmap = try {
         when {
-            path != null -> BitmapFactory.decodeFile(path)
+            path != null && path.startsWith("content://") -> decodeDocument(context, Uri.parse(path), side)
+            path != null -> decodeScaled(path, side)
             albumId != null -> context.contentResolver.loadThumbnail(
                 ContentUris.withAppendedId(MediaStore.Audio.Albums.EXTERNAL_CONTENT_URI, albumId),
                 Size(side, side),
                 null,
             )
+            // Pictures from the folder chosen in Settings are plain files: decode them, shrunk.
+            videoUri != null && videoUri.authority?.endsWith(".documents") == true ->
+                decodeDocument(context, videoUri, side)
             videoUri != null -> context.contentResolver.loadThumbnail(videoUri, Size(side, side), null)
             else -> null
         }
     } catch (_: Exception) {
+        null
+    } catch (_: OutOfMemoryError) {
         null
     }
     val image = bitmap?.asImageBitmap()

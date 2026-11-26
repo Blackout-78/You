@@ -9,7 +9,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +42,8 @@ private fun ResultRow(title: String, subtitle: String?, onClick: () -> Unit) {
 @Composable
 fun SearchScreen(vm: AppViewModel) {
     var query by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
     val q = query.trim().lowercase()
 
     val artists = if (q.isEmpty()) emptyList() else vm.library.artists.filter { it.name.lowercase().contains(q) }
@@ -57,10 +63,12 @@ fun SearchScreen(vm: AppViewModel) {
             onValueChange = { query = it },
             singleLine = true,
             placeholder = { Text("Songs, albums, artists, movies, shows", color = Muted) },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).focusRequester(focus),
+            shape = RoundedCornerShape(8.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = White, unfocusedTextColor = White,
-                focusedBorderColor = White, unfocusedBorderColor = Line, cursorColor = White,
+                focusedContainerColor = DarkGray, unfocusedContainerColor = DarkGray,
+                focusedBorderColor = DarkGray, unfocusedBorderColor = DarkGray, cursorColor = White,
             ),
         )
         if (none) {
