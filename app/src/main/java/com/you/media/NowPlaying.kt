@@ -56,8 +56,8 @@ fun rememberNowCover(vm: AppViewModel): NowCover {
     val albumKey = remember(id, vm.library) { id?.let { albumKeyOf(vm, it) } }
     val movie = videoId?.let { vid -> vm.videos.movies.find { it.video.id == vid } }
     val videoUri = videoId?.let { vid ->
-        movie?.video?.uri ?: vm.videos.shows.firstNotNullOfOrNull { sh ->
-            sh.seasons.firstNotNullOfOrNull { se -> se.episodes.find { it.video.id == vid }?.video?.uri }
+        movie?.video?.art ?: vm.videos.shows.firstNotNullOfOrNull { sh ->
+            sh.seasons.firstNotNullOfOrNull { se -> se.episodes.find { it.video.id == vid }?.video?.art }
         }
     }
     val path = (albumKey ?: movie?.key)?.let { vm.store.covers[it] }
@@ -117,7 +117,7 @@ fun NowPlayingScreen(vm: AppViewModel) {
                         onValueChangeFinished = { p.seekTo(dragValue.toLong()); position = dragValue.toLong(); dragging = false },
                         valueRange = 0f..max, enabled = hasTrack, modifier = Modifier.weight(1f),
                         colors = SliderDefaults.colors(
-                            thumbColor = White, activeTrackColor = White, inactiveTrackColor = Line,
+                            thumbColor = White, activeTrackColor = AccentHi, inactiveTrackColor = Line,
                             disabledThumbColor = Line, disabledActiveTrackColor = Line, disabledInactiveTrackColor = Panel,
                         ),
                     )
@@ -136,6 +136,7 @@ fun NowPlayingScreen(vm: AppViewModel) {
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     if (!p.isVideo) LinkText("Lyrics") { vm.showNowPlaying = false; vm.showLyrics = true }
+                    LinkText("Speed " + speedLabel(p.speed)) { p.cycleSpeed() }
                     LinkText(
                         when (vm.sleepMinutes) { 0 -> "Sleep timer"; -1 -> "Sleep: end of song"; else -> "Sleep ${vm.sleepMinutes} min" }
                     ) { vm.cycleSleep() }

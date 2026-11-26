@@ -12,6 +12,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +71,16 @@ private fun hasVideoAccess(context: Context) =
     Build.VERSION.SDK_INT < 33 ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
 
+private fun videoPermissions() =
+    if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_IMAGES)
+    else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+
+private fun hasPosterAccess(context: Context) =
+    Build.VERSION.SDK_INT < 33 ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+        (Build.VERSION.SDK_INT >= 34 && ContextCompat.checkSelfPermission(
+            context, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED)
+
 private fun hasAudioAccess(context: Context) =
     ContextCompat.checkSelfPermission(context, audioPermission()) == PackageManager.PERMISSION_GRANTED
 
@@ -80,14 +93,22 @@ fun App(vm: AppViewModel) {
     }
 
     var videoAccess by remember { mutableStateOf(hasVideoAccess(context)) }
-    val askVideo = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+    val askVideoAndPosters = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         videoAccess = hasVideoAccess(context)
         if (videoAccess) vm.refresh()
     }
+    val askVideo = { askVideoAndPosters.launch(videoPermissions()) }
 
     if (!vm.welcomed) {
         WelcomeScreen(vm)
         return
+    }
+
+    // Phones that already allowed videos are asked once for pictures, so posters can show.
+    LaunchedEffect(videoAccess) {
+        if (videoAccess && !hasPosterAccess(context) && vm.store.takePosterPrompt()) {
+            askVideoAndPosters.launch(videoPermissions())
+        }
     }
 
     LaunchedEffect(granted) {
@@ -106,7 +127,7 @@ fun App(vm: AppViewModel) {
             Text("You", color = White, fontSize = 28.sp)
             Spacer(Modifier.height(16.dp))
             Text(
-                "To show your music, the app needs to read the music on this phone.\n" +
+                "To show your music, You needs to read the music on this phone.\n" +
                     "It never connects to the internet and never shares anything.",
                 color = Muted, fontSize = 15.sp, textAlign = TextAlign.Center,
             )
@@ -123,8 +144,8 @@ fun App(vm: AppViewModel) {
 
     val screen = vm.stack.last()
     BackHandler(enabled = vm.stack.size > 1) { vm.back() }
-    BackHandler(enabled = vm.showNowPlaying) { vm.showNowPlaying = false }
     BackHandler(enabled = vm.showLyrics) { vm.showLyrics = false }
+    BackHandler(enabled = vm.showNowPlaying) { vm.showNowPlaying = false }
     BackHandler(enabled = vm.showVideo) { vm.showVideo = false }
     BackHandler(enabled = vm.fullscreen) { vm.fullscreen = false }
 
@@ -154,27 +175,28 @@ fun App(vm: AppViewModel) {
             vm.saveVideoPosition()
         }
     }
-    LaunchedEffect(vm.player.mediaId) { vm.recordPlayed(vm.player.mediaId) }
     LaunchedEffect(vm.player.mediaId, vm.library.tracksById.size) { vm.loadLyricsFor(vm.player.mediaId) }
+    LaunchedEffect(vm.player.mediaId) { vm.recordPlayed(vm.player.mediaId) }
+    LaunchedEffect(vm.player.mediaId) { if (vm.player.mediaId == null) vm.showNowPlaying = false }
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f)) {
             if (vm.showVideo && vm.player.isVideo) {
                 VideoScreen(vm)
-            } else if (vm.showNowPlaying && vm.player.mediaId != null) {
-                NowPlayingScreen(vm)
             } else if (vm.showLyrics && vm.player.mediaId != null && !vm.player.isVideo) {
                 LyricsScreen(vm)
+            } else if (vm.showNowPlaying && vm.player.mediaId != null) {
+                NowPlayingScreen(vm)
             } else when (screen) {
                 Screen.Settings -> SettingsScreen(vm)
                 Screen.Search -> SearchScreen(vm)
                 Screen.Playlists -> PlaylistsScreen(vm)
                 is Screen.CollectionPage -> CollectionScreen(vm, screen.folder)
                 is Screen.PlaylistPage -> PlaylistScreen(vm, screen.name)
-                Screen.Movies -> MoviesScreen(vm, videoAccess) { askVideo.launch(Manifest.permission.READ_MEDIA_VIDEO) }
-                Screen.Shows -> ShowsScreen(vm, videoAccess) { askVideo.launch(Manifest.permission.READ_MEDIA_VIDEO) }
-                is Screen.MoviePage -> MovieScreen(vm, screen.id)
-                is Screen.ShowPage -> ShowScreen(vm, screen.title)
+                Screen.Movies -> MoviesScreen(vm, videoAccess) { askVideo() }
+                Screen.Shows -> ShowsScreen(vm, videoAccess) { askVideo() }
+                is Screen.MoviePage -> MovieTitleScreen(vm, screen.id)
+                is Screen.ShowPage -> ShowTitleScreen(vm, screen.title)
                 is Screen.SeasonPage -> SeasonScreen(vm, screen.show, screen.season)
                 Screen.Artists -> ArtistsScreen(vm)
                 Screen.Favorites -> FavoritesScreen(vm)
@@ -191,25 +213,39 @@ fun App(vm: AppViewModel) {
 
 @Composable
 private fun TabBar(vm: AppViewModel) {
-    Box(Modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().background(YouColors.solidDark)) {
     Column(Modifier.fillMaxWidth()) {
         androidx.compose.material3.HorizontalDivider(color = Line)
-        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().height(52.dp)) {
-            for ((tab, label) in listOf(Tab.Movies to "Movies", Tab.Shows to "TV Shows", Tab.Music to "Music", Tab.Settings to "Settings")) {
+        androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().height(58.dp)) {
+            val tabs = listOf(
+                Triple(Tab.Movies, "Movies", "movies"), Triple(Tab.Shows, "TV Shows", "tv"),
+                Triple(Tab.Music, "Music", "music"), Triple(Tab.Settings, "Settings", "settings"),
+            )
+            for ((tab, label, glyph) in tabs) {
                 val on = vm.tab == tab
-                Box(
+                val color = if (on) White else Muted
+                Column(
                     Modifier.weight(1f).fillMaxSize().clickable { vm.selectTab(tab) },
-                    contentAlignment = Alignment.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
                 ) {
-                    Text(label, color = if (on) White else Muted, fontSize = 14.sp,
-                        fontWeight = if (on) androidx.compose.ui.text.font.FontWeight.Bold else null)
+                    // the selected tab sits in a dark pill with an outline in your accent color
+                    Box(
+                        Modifier.width(52.dp).height(28.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                            .background(YouColors.solidDark)
+                            .then(if (on) Modifier.border(2.dp, Accent, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)) else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) { NavGlyph(glyph, color) }
+                    Text(label, color = color, fontSize = 10.sp, maxLines = 1)
                 }
             }
         }
+        // the build stamp has its own strip, so it never covers a tab label
+        Text(
+            Version.tag, color = Muted, fontSize = 9.sp,
+            modifier = Modifier.fillMaxWidth().clickable { vm.selectTab(Tab.Settings) }.padding(start = 6.dp, bottom = 2.dp),
+        )
     }
-    Text(
-        Version.tag, color = Muted, fontSize = 9.sp,
-        modifier = Modifier.align(Alignment.BottomStart).clickable { vm.selectTab(Tab.Settings) }.padding(start = 6.dp, bottom = 2.dp),
-    )
     }
 }

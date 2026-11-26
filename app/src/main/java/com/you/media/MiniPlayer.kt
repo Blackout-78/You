@@ -5,7 +5,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -44,8 +49,8 @@ fun MiniPlayer(vm: AppViewModel) {
     }
     val movie = videoId?.let { vid -> vm.videos.movies.find { it.video.id == vid } }
     val videoUri = videoId?.let { vid ->
-        movie?.video?.uri ?: vm.videos.shows.firstNotNullOfOrNull { sh ->
-            sh.seasons.firstNotNullOfOrNull { se -> se.episodes.find { it.video.id == vid }?.video?.uri }
+        movie?.video?.art ?: vm.videos.shows.firstNotNullOfOrNull { sh ->
+            sh.seasons.firstNotNullOfOrNull { se -> se.episodes.find { it.video.id == vid }?.video?.art }
         }
     }
     val coverPath = (albumKey ?: movie?.key)?.let { vm.store.covers[it] }
@@ -65,17 +70,46 @@ fun MiniPlayer(vm: AppViewModel) {
     val shown = if (dragging) dragValue else position.coerceIn(0L, p.durationMs.coerceAtLeast(1L)).toFloat()
     val hasTrack = p.mediaId != null
 
-    Column(Modifier.fillMaxWidth().background(Black).clickable(enabled = hasTrack && !p.isVideo) { vm.showNowPlaying = true }) {
+    // Songs get the slim bar: progress on the top edge, cover, title, play/pause and next.
+    // Seeking, shuffle, repeat, heart and lyrics live in the full Now Playing screen.
+    if (!p.isVideo) {
+        val fraction = (position.toFloat() / max).coerceIn(0f, 1f)
+        Column(Modifier.fillMaxWidth().background(YouColors.raised).clickable { vm.showNowPlaying = true }) {
+            Box(Modifier.fillMaxWidth().height(3.dp).background(Line)) {
+                Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(Accent))
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (track != null) {
+                    Cover(coverPath, track.albumId, p.title, Modifier.size(40.dp).clip(RoundedCornerShape(5.dp)))
+                    Spacer(Modifier.width(10.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(p.title.ifEmpty { "Nothing playing" }, color = White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (p.artist.isNotEmpty()) Text(p.artist, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                PlayPauseButton(playing = p.isPlaying, enabled = hasTrack, onClick = p::toggle, size = 44.dp, ring = false)
+                NextButton(enabled = hasTrack, onClick = p::next, ring = false)
+            }
+        }
+        return
+    }
+
+    Column(Modifier.fillMaxWidth().background(Black).clickable(enabled = !p.isVideo) { vm.showNowPlaying = true }) {
         HorizontalDivider(color = Line)
         Row(
             Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Tap the cover or the title to open the full-screen player.
+            Row(Modifier.weight(1f).clickable(enabled = !p.isVideo) { vm.showNowPlaying = true }, verticalAlignment = Alignment.CenterVertically) {
             if (track != null || videoUri != null) {
                 Cover(coverPath, track?.albumId, p.title, Modifier.size(56.dp), videoUri)
                 Spacer(Modifier.width(12.dp))
             }
-            Column(Modifier.weight(1f).clickable(enabled = hasTrack && !p.isVideo) { vm.showNowPlaying = true }) {
+            Column(Modifier.weight(1f)) {
                 Text(
                     p.title.ifEmpty { "Nothing playing" }, color = White, fontSize = 15.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -83,6 +117,7 @@ fun MiniPlayer(vm: AppViewModel) {
                 if (p.artist.isNotEmpty()) {
                     Text(p.artist, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+            }
             }
             if (p.isVideo && !vm.showVideo) LinkText("Watch") { vm.showVideo = true }
             LyricsButton(active = vm.showLyrics, enabled = hasTrack && !p.isVideo, onClick = { vm.showLyrics = !vm.showLyrics })
@@ -110,7 +145,7 @@ fun MiniPlayer(vm: AppViewModel) {
                 modifier = Modifier.weight(1f),
                 colors = SliderDefaults.colors(
                     thumbColor = White,
-                    activeTrackColor = White,
+                    activeTrackColor = AccentHi,
                     inactiveTrackColor = Line,
                     disabledThumbColor = Line,
                     disabledActiveTrackColor = Line,
@@ -130,7 +165,6 @@ fun MiniPlayer(vm: AppViewModel) {
             PreviousButton(enabled = hasTrack, onClick = p::previous)
             SkipButton(forward = false, enabled = hasTrack, onClick = { p.skip(-10_000) })
             PlayPauseButton(playing = p.isPlaying, enabled = hasTrack, onClick = p::toggle)
-            StopButton(enabled = hasTrack, onClick = vm::stopPlayback)
             SkipButton(forward = true, enabled = hasTrack, onClick = { p.skip(10_000) })
             NextButton(enabled = hasTrack, onClick = p::next)
             RepeatButton(mode = p.repeat.let { if (it == androidx.media3.common.Player.REPEAT_MODE_ONE) 2 else if (it == androidx.media3.common.Player.REPEAT_MODE_ALL) 1 else 0 }, onClick = p::cycleRepeat)

@@ -3,6 +3,7 @@ package com.you.media
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -82,6 +83,9 @@ fun RoundButton(
     size: Dp = 40.dp,
     active: Boolean = false,
     enabled: Boolean = true,
+    outline: Color? = null,
+    fill: Color? = null,
+    ring: Boolean = true,
     draw: DrawScope.(color: Color, width: Float) -> Unit,
 ) {
     val color = when {
@@ -94,7 +98,8 @@ fun RoundButton(
         Modifier
             .size(size)
             .clip(CircleShape)
-            .border(1.5.dp, color, CircleShape)
+            .then(if (fill != null) Modifier.background(fill) else Modifier)
+            .then(if (ring) Modifier.border(1.5.dp, outline ?: color, CircleShape) else Modifier)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -117,9 +122,9 @@ private val PAUSE = listOf(
 
 /** One button that melts between play and pause. */
 @Composable
-fun PlayPauseButton(playing: Boolean, enabled: Boolean, onClick: () -> Unit, size: Dp = 52.dp) {
+fun PlayPauseButton(playing: Boolean, enabled: Boolean, onClick: () -> Unit, size: Dp = 52.dp, ring: Boolean = true) {
     val t by animateFloatAsState(if (playing) 1f else 0f, tween(200), label = "playpause")
-    RoundButton(onClick, size, active = playing, enabled = enabled) { color, w ->
+    RoundButton(onClick, size, active = playing, enabled = enabled, ring = ring) { color, w ->
         for (i in PLAY.indices) {
             val pts = PLAY[i].indices.map { k ->
                 lerp(PLAY[i][k].first, PAUSE[i][k].first, t) to lerp(PLAY[i][k].second, PAUSE[i][k].second, t)
@@ -150,8 +155,8 @@ fun PreviousButton(enabled: Boolean, onClick: () -> Unit) =
     }
 
 @Composable
-fun NextButton(enabled: Boolean, onClick: () -> Unit) =
-    RoundButton(onClick, enabled = enabled) { color, w ->
+fun NextButton(enabled: Boolean, onClick: () -> Unit, ring: Boolean = true) =
+    RoundButton(onClick, enabled = enabled, ring = ring) { color, w ->
         line(color, 30f, 15f, 30f, 29f, w)
         polygon(color, w, listOf(14f to 15f, 14f to 29f, 25f to 22f))
     }
@@ -164,15 +169,24 @@ fun SkipButton(forward: Boolean, enabled: Boolean, onClick: () -> Unit) =
         ten(color, w)
     }
 
+private fun DrawScope.shuffleIcon(color: Color, w: Float) {
+    line(color, 12f, 29f, 19f, 29f, w); line(color, 19f, 29f, 25f, 15f, w); line(color, 25f, 15f, 31f, 15f, w)
+    line(color, 12f, 15f, 19f, 15f, w); line(color, 19f, 15f, 25f, 29f, w); line(color, 25f, 29f, 31f, 29f, w)
+    for (y in listOf(15f, 29f)) {
+        line(color, 32f, y, 28.5f, y - 2.8f, w)
+        line(color, 32f, y, 28.5f, y + 2.8f, w)
+    }
+}
+
 @Composable
 fun ShuffleButton(active: Boolean, onClick: () -> Unit) =
-    RoundButton(onClick, active = active) { color, w ->
-        line(color, 12f, 29f, 19f, 29f, w); line(color, 19f, 29f, 25f, 15f, w); line(color, 25f, 15f, 31f, 15f, w)
-        line(color, 12f, 15f, 19f, 15f, w); line(color, 19f, 15f, 25f, 29f, w); line(color, 25f, 29f, 31f, 29f, w)
-        for (y in listOf(15f, 29f)) {
-            line(color, 32f, y, 28.5f, y - 2.8f, w)
-            line(color, 32f, y, 28.5f, y + 2.8f, w)
-        }
+    RoundButton(onClick, active = active) { color, w -> shuffleIcon(color, w) }
+
+/** The floating Music-tab shuffle button: the same shuffle icon, bigger, in a navy accent ring on black. */
+@Composable
+fun ShuffleFabButton(onClick: () -> Unit) =
+    RoundButton(onClick, size = 56.dp, active = true, outline = Accent, fill = YouColors.solidDark) { color, w ->
+        shuffleIcon(color, w)
     }
 
 @Composable
@@ -203,3 +217,42 @@ fun LyricsButton(active: Boolean, enabled: Boolean, onClick: () -> Unit) =
         line(color, 13f, 22f, 31f, 22f, w)
         line(color, 13f, 29f, 24f, 29f, w)
     }
+
+/** The bottom-bar icons (home, movies, tv, music, settings), outline only, on the same 44 grid. */
+@Composable
+fun NavGlyph(kind: String, color: Color, size: Dp = 22.dp) {
+    Canvas(Modifier.size(size)) {
+        scale(this.size.width / 44f, Offset.Zero) {
+            val w = 2.4f
+            when (kind) {
+                "home" -> {
+                    polygon(color, w, listOf(8f to 22f, 22f to 9f, 36f to 22f))
+                    polygon(color, w, listOf(12f to 20f, 12f to 35f, 32f to 35f, 32f to 20f))
+                }
+                "movies" -> {
+                    polygon(color, w, listOf(7f to 13f, 37f to 13f, 37f to 33f, 7f to 33f))
+                    polygon(color, w, listOf(19f to 17f, 19f to 29f, 28f to 23f))
+                }
+                "tv" -> {
+                    polygon(color, w, listOf(7f to 13f, 37f to 13f, 37f to 31f, 7f to 31f))
+                    line(color, 16f, 36f, 28f, 36f, w)
+                }
+                "music" -> {
+                    line(color, 17f, 29f, 17f, 11f, w)
+                    line(color, 17f, 11f, 31f, 8f, w)
+                    line(color, 31f, 8f, 31f, 26f, w)
+                    drawCircle(color, 5f, Offset(13f, 30f), style = stroke(w))
+                    drawCircle(color, 5f, Offset(27f, 27f), style = stroke(w))
+                }
+                else -> {
+                    drawCircle(color, 6f, Offset(22f, 22f), style = stroke(w))
+                    for (i in 0 until 8) {
+                        val a = i * 45 * PI / 180.0
+                        line(color, (22 + 10 * cos(a)).toFloat(), (22 + 10 * sin(a)).toFloat(),
+                            (22 + 14 * cos(a)).toFloat(), (22 + 14 * sin(a)).toFloat(), w)
+                    }
+                }
+            }
+        }
+    }
+}

@@ -96,6 +96,14 @@ object YouColors {
     val panel: Color get() = lerp(palette.dark.color(), palette.light.color(), 0.08f).let {
         if (hasPicture) it.copy(alpha = 0.40f + 0.55f * palette.dim) else it
     }
+    /** Buttons and selected chips: a deeper shade of the middle tone, so light text reads on it. */
+    val accent: Color get() = lerp(palette.dark.color(), palette.middle.color(), 0.6f)
+    /** Progress bars, slider tracks and focused borders: the middle tone itself. */
+    val accentHi: Color get() = palette.middle.color()
+    /** Secondary buttons (Shuffle) and icon squares: a step lighter than the dark tone. */
+    val darkGray: Color get() = lerp(palette.dark.color(), palette.light.color(), 0.11f)
+    /** Slim mini player bar: a touch lighter than the page. */
+    val raised: Color get() = lerp(palette.dark.color(), palette.light.color(), 0.07f)
     /** The solid dark tone, used where a see-through color would look wrong (system bars, text on a light button). */
     val solidDark: Color get() = palette.dark.color()
 
@@ -123,6 +131,9 @@ val Soft: Color get() = YouColors.soft
 val Muted: Color get() = YouColors.muted
 val Line: Color get() = YouColors.line
 val Panel: Color get() = YouColors.panel
+val Accent: Color get() = YouColors.accent
+val AccentHi: Color get() = YouColors.accentHi
+val DarkGray: Color get() = YouColors.darkGray
 
 @Composable
 fun YouTheme(content: @Composable () -> Unit) {
